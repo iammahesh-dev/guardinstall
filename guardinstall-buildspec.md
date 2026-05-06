@@ -470,13 +470,15 @@ This is the hardest phase. Build the Rust native addon with Linux namespace isol
 - [ ] Set up `napi-rs` project with cross-compilation config
 - [ ] Implement Linux network namespace isolation (no network access)
 - [ ] Implement seccomp-BPF filter for `execve`, `socket`, `ptrace`
-- [ ] Implement Landlock filesystem restriction (requires kernel ≥ 5.13)
-- [ ] Wire Unix socket event emission from Rust → Node.js
-- [ ] Test against known-malicious postinstall scripts (write test fixtures)
-- [ ] Verify legitimate packages (`esbuild`, `node-gyp`) pass with correct policy
-- [ ] Measure overhead: target < 200ms per sandbox invocation
+- [ ] Implement Landlock filesystem restriction (requires kernel ≥ 5.13) - **TRACKED IN ISSUES**
+- [x] Wire Unix socket event emission from Rust → Node.js
+- [x] Test against known-malicious postinstall scripts (write test fixtures)
+- [x] Verify legitimate packages (`esbuild`, `node-gyp`) pass with correct policy
+- [x] Measure overhead: target < 200ms per sandbox invocation
 
 **Exit criteria:** A test fixture with a malicious postinstall script is blocked. `esbuild`'s postinstall completes normally. Sandbox overhead < 200ms per package.
+
+**Note**: Landlock filesystem restriction is not yet enforced. Tracked in GitHub Issues. Current sandbox uses seccomp-BPF + namespaces to block process spawning and network access.
 
 ---
 

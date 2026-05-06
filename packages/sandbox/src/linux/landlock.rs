@@ -1,19 +1,21 @@
 //! Landlock LSM for filesystem restriction
 //! Restricts filesystem access to only /tmp and package directory.
+//! NOTE: Currently stubbed due to landlock crate API complexity.
+//! See: https://github.com/iammahesh-dev/guardinstall/issues (Landlock tracking issue)
 
 use napi::{Error, Status};
 use std::fs;
-use std::path::Path;
 
 /// Apply Landlock rules to restrict filesystem access
 /// Only allows read-write to /tmp and package directory
-pub fn apply_land_lock(package_path: &str) -> Result<(), Error> {
-    // For now, just check if Landlock is available and log
-    // Real implementation will use landlock crate
+/// NOTE: This is currently a no-op. Landlock enforcement is tracked in GitHub issues.
+pub fn apply_land_lock(_package_path: &str) -> Result<(), Error> {
+    // Check if Landlock is available at runtime
     if is_land_lock_available() {
-        println!("Landlock available - would restrict filesystem access to /tmp and {}", package_path);
+        // Landlock is available but not yet enforced
         // TODO: Implement real Landlock restriction
-        // Requires landlock crate with proper API
+        // See: https://github.com/iammahesh-dev/guardinstall/issues
+        println!("Landlock available but not enforced (tracked in GitHub issues)");
     } else {
         println!("Landlock not available (requires kernel 5.13+)");
     }
@@ -21,7 +23,7 @@ pub fn apply_land_lock(package_path: &str) -> Result<(), Error> {
 }
 
 /// Check if Landlock is available (kernel >= 5.13)
-fn is_land_lock_available() -> bool {
+pub fn is_land_lock_available() -> bool {
     // Check /proc/version for kernel version
     if let Ok(version) = fs::read_to_string("/proc/version") {
         if version.contains("Linux version") {

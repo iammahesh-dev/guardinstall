@@ -88,9 +88,11 @@ Developer runs: $ npx guardinstall add express
 
 | Platform | Minimum Version | Sandbox Technology |
 |-----------|-----------------|-------------------|
-| Linux     | Kernel 5.13+    | seccomp-BPF + namespaces + Landlock |
+| Linux     | Kernel 5.13+    | seccomp-BPF + namespaces (Landlock: coming soon) |
 | macOS     | 10.15+          | Seatbelt (sandbox-exec) |
 | Windows   | 10+             | Job Objects (detect mode) |
+
+**Note**: Landlock filesystem restriction is not yet enforced. Filesystem writes to sensitive paths (e.g., `~/.ssh/`) are not currently blocked. Track progress: [GitHub Issues](https://github.com/iammahesh-dev/guardinstall/issues)
 
 ## Configuration
 
