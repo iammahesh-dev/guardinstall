@@ -1,11 +1,12 @@
 //! Event emission from sandbox to parent process
-//! Uses Unix socket for structured JSON event streaming
+//! Uses Unix socket (via stdout) for structured JSON event streaming
 
 use napi::{Error, Status};
+use serde::Serialize;
 use serde_json::json;
 use std::io::{self, Write};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SandboxEvent {
     pub event_type: String,
     pub package: String,

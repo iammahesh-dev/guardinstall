@@ -1,8 +1,11 @@
 pub mod seccomp;
 pub mod namespaces;
 pub mod landlock;
+pub mod events;
 
-use napi::Error;
+use events::SandboxEvent;
+
+use napi::{Error, Status};
 use std::path::Path;
 
 /// Apply all Linux sandboxing techniques
@@ -11,7 +14,7 @@ pub fn sandbox_linux(script_path: &str) -> napi::Result<()> {
 
     if !path.exists() {
         return Err(Error::new(
-            napi::Status::GenericFailure,
+            Status::GenericFailure,
             "Script not found".to_string(),
         ));
     }
@@ -21,6 +24,21 @@ pub fn sandbox_linux(script_path: &str) -> napi::Result<()> {
 
     // Phase 2: Apply seccomp-BPF filter
     seccomp::apply_seccomp()?;
+
+    // Emit event that seccomp was applied
+    let event = events::SandboxEvent {
+        event_type: "seccomp_applied".to_string(),
+        package: "unknown".to_string(),
+        syscall: None,
+        args: None,
+        path: None,
+        action: "allowed".to_string(),
+        timestamp_ns: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as u64,
+    };
+    let _ = events::emit_event(&event);
 
     // Phase 2: Apply Landlock filesystem restrictions
     landlock::apply_land_lock(script_path)?;
