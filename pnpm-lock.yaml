@@ -17,6 +17,9 @@ importers:
       '@guardinstall/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine
+      '@guardinstall/sandbox':
+        specifier: workspace:*
+        version: link:../sandbox
       '@npmcli/arborist':
         specifier: 7.5.4
         version: 7.5.4
