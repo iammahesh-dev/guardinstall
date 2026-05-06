@@ -1,0 +1,16 @@
+{
+  "package": "puppeteer",
+  "versions": ">=20.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org", "github.com"],
+      "reason": "Downloads Chromium browser"
+    },
+    "filesystem": {
+      "writes": ["./lib", "./cache"],
+      "reason": "Extracts Chromium to local cache"
+    },
+    "exec": true
+  }
+}

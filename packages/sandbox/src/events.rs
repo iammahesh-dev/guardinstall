@@ -3,6 +3,7 @@
 
 use napi::{Error, Status};
 use serde_json::json;
+use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 pub struct SandboxEvent {
@@ -29,10 +30,19 @@ impl SandboxEvent {
     }
 }
 
-/// Emit event to parent process via Unix socket
+/// Emit event to parent process via stdout (JSON lines)
 pub fn emit_event(event: &SandboxEvent) -> Result<(), Error> {
-    // Placeholder: will use Unix socket to stream JSON to parent
-    println!("{}", serde_json::to_string(event).unwrap());
+    let json_str = serde_json::to_string(event).map_err(|e| {
+        Error::new(Status::GenericFailure, format!("JSON serialization failed: {}", e))
+    })?;
+
+    io::stdout().write_all(json_str.as_bytes()).map_err(|e| {
+        Error::new(Status::GenericFailure, format!("Failed to write event: {}", e))
+    })?;
+    io::stdout().write_all(b"\n").map_err(|e| {
+        Error::new(Status::GenericFailure, format!("Failed to write newline: {}", e))
+    })?;
+
     Ok(())
 }
 
@@ -55,5 +65,22 @@ mod tests {
         let json = event.to_json();
         assert_eq!(json["event"], "syscall_intercepted");
         assert_eq!(json["package"], "test@1.0.0");
+    }
+
+    #[test]
+    fn test_emit_event() {
+        let event = SandboxEvent {
+            event_type: "test".to_string(),
+            package: "test@1.0.0".to_string(),
+            syscall: None,
+            args: None,
+            path: None,
+            action: "logged".to_string(),
+            timestamp_ns: 1746547200000,
+        };
+
+        // Should not panic
+        let result = emit_event(&event);
+        assert!(result.is_ok());
     }
 }
