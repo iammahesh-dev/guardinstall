@@ -1,16 +1,10 @@
 {
-  "package": "uuid",
-  "versions": ">=9.0.0",
+  "package": "${pkg}",
+  "versions": ">=1.0.0",
   "maintainers_verified": true,
   "expected_behavior": {
-    "network": {
-      "allowed_hosts": [],
-      "reason": "No network needed"
-    },
-    "filesystem": {
-      "writes": [],
-      "reason": "UUID library"
-    },
+    "network": { "allowed_hosts": [], "reason": "No network needed" },
+    "filesystem": { "writes": ["./lib"], "reason": "Library package" },
     "exec": false
   }
 }

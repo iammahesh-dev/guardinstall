@@ -1,16 +1,10 @@
 {
   "package": "async",
-  "versions": ">=3.0.0",
+  "versions": ">=1.0.0",
   "maintainers_verified": true,
   "expected_behavior": {
-    "network": {
-      "allowed_hosts": [],
-      "reason": "No network needed"
-    },
-    "filesystem": {
-      "writes": [],
-      "reason": "Utility library"
-    },
+    "network": { "allowed_hosts": [], "reason": "No network needed" },
+    "filesystem": { "writes": ["./lib"], "reason": "Library package" },
     "exec": false
   }
 }

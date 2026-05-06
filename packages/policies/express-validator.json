@@ -1,10 +1,10 @@
 {
-  "package": "d3",
+  "package": "express-validator",
   "versions": ">=1.0.0",
   "maintainers_verified": true,
   "expected_behavior": {
     "network": { "allowed_hosts": [], "reason": "No network needed" },
-    "filesystem": { "writes": ["./lib"], "reason": "Library package" },
+    "filesystem": { "writes": [], "reason": "Library package" },
     "exec": false
   }
 }
