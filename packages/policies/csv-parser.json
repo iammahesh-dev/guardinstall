@@ -1,0 +1,16 @@
+{
+  "package": "csv-parser",
+  "versions": ">=3.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Streaming CSV parser"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "Streaming CSV parser"
+    },
+    "exec": false
+  }
+}

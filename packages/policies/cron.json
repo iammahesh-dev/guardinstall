@@ -1,0 +1,16 @@
+{
+  "package": "cron",
+  "versions": ">=2.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Cron-like job scheduler"
+    },
+    "filesystem": {
+      "writes": ["lib/cron.js"],
+      "reason": "Cron-like job scheduler"
+    },
+    "exec": false
+  }
+}

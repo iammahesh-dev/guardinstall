@@ -1,0 +1,16 @@
+{
+  "package": "babel-preset-env",
+  "versions": ">=7.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Babel preset for env"
+    },
+    "filesystem": {
+      "writes": ["lib/index.js"],
+      "reason": "Babel preset for env"
+    },
+    "exec": false
+  }
+}

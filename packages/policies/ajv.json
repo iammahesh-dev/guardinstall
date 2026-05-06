@@ -1,0 +1,16 @@
+{
+  "package": "ajv",
+  "versions": ">=6.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org"],
+      "reason": "Pure JS validation library, no native code"
+    },
+    "filesystem": {
+      "writes": ["lib/ajv.js"],
+      "reason": "Pure JS validation library, no native code"
+    },
+    "exec": false
+  }
+}

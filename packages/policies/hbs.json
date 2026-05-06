@@ -1,0 +1,16 @@
+{
+  "package": "hbs",
+  "versions": ">=4.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Handlebars view engine"
+    },
+    "filesystem": {
+      "writes": ["lib/hbs.js"],
+      "reason": "Handlebars view engine"
+    },
+    "exec": false
+  }
+}

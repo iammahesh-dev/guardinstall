@@ -1,0 +1,16 @@
+{
+  "package": "env-cmd",
+  "versions": ">=10.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Environment config loader"
+    },
+    "filesystem": {
+      "writes": ["bin/env-cmd.js"],
+      "reason": "Environment config loader"
+    },
+    "exec": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "package": "http-proxy",
+  "versions": ">=1.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "HTTP proxy middleware"
+    },
+    "filesystem": {
+      "writes": ["lib/http-proxy.js"],
+      "reason": "HTTP proxy middleware"
+    },
+    "exec": false
+  }
+}

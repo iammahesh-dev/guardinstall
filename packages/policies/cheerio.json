@@ -1,0 +1,16 @@
+{
+  "package": "cheerio",
+  "versions": ">=1.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Fast HTML parser"
+    },
+    "filesystem": {
+      "writes": ["lib/cheerio.js"],
+      "reason": "Fast HTML parser"
+    },
+    "exec": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "package": "express-session",
+  "versions": ">=1.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Session middleware for Express"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "Session middleware for Express"
+    },
+    "exec": false
+  }
+}

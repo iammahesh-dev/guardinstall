@@ -1,0 +1,16 @@
+{
+  "package": "jest-cli",
+  "versions": ">=29.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Jest test runner CLI"
+    },
+    "filesystem": {
+      "writes": ["bin/jest.js"],
+      "reason": "Jest test runner CLI"
+    },
+    "exec": false
+  }
+}

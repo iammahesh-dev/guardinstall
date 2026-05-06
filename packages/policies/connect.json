@@ -1,0 +1,16 @@
+{
+  "package": "connect",
+  "versions": ">=3.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "HTTP server framework"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "HTTP server framework"
+    },
+    "exec": false
+  }
+}

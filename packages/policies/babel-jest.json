@@ -1,0 +1,16 @@
+{
+  "package": "babel-jest",
+  "versions": ">=29.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Jest plugin for Babel, JS only"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "Jest plugin for Babel, JS only"
+    },
+    "exec": false
+  }
+}

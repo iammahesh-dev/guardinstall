@@ -1,0 +1,16 @@
+{
+  "package": "ioredis",
+  "versions": ">=5.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org"],
+      "reason": "Redis client for Node.js"
+    },
+    "filesystem": {
+      "writes": ["lib/redis.js"],
+      "reason": "Redis client for Node.js"
+    },
+    "exec": false
+  }
+}
