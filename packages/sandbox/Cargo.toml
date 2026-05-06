@@ -1,0 +1,14 @@
+[package]
+name = "guardinstall-sandbox"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+napi = { version = "2.16.0", features = ["napi6"] }
+napi-derive = "2.16.0"
+
+[build-dependencies]
+napi-build = "2.1.0"
+
+[lib]
+crate-type = ["cdylib"]

@@ -1,0 +1,16 @@
+{
+  "package": "canvas",
+  "versions": ">=2.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org"],
+      "reason": "Downloads native dependencies"
+    },
+    "filesystem": {
+      "writes": ["./build", "./lib"],
+      "reason": "Compiles Cairo graphics library"
+    },
+    "exec": true
+  }
+}

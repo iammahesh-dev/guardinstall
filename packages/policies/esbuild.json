@@ -1,0 +1,16 @@
+{
+  "package": "esbuild",
+  "versions": ">=0.18.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org", "cdn.esbuild.dev"],
+      "reason": "Downloads platform-specific binary from CDN"
+    },
+    "filesystem": {
+      "writes": ["./bin/esbuild"],
+      "reason": "Writes downloaded binary to package bin/ directory"
+    },
+    "exec": false
+  }
+}

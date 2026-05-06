@@ -1,0 +1,16 @@
+{
+  "package": "sharp",
+  "versions": ">=0.30.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org"],
+      "reason": "Downloads pre-built libvips binaries"
+    },
+    "filesystem": {
+      "writes": ["./lib", "./build"],
+      "reason": "Extracts native binaries"
+    },
+    "exec": true
+  }
+}

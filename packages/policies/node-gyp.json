@@ -1,0 +1,16 @@
+{
+  "package": "node-gyp",
+  "versions": ">=8.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org", "nodejs.org"],
+      "reason": "Downloads node headers for compilation"
+    },
+    "filesystem": {
+      "writes": ["./build", "./lib"],
+      "reason": "Compiles native addons"
+    },
+    "exec": true
+  }
+}
