@@ -23,7 +23,7 @@ pub fn sandbox_linux(script_path: &str) -> napi::Result<()> {
     seccomp::apply_seccomp()?;
 
     // Phase 2: Apply Landlock filesystem restrictions
-    landlock::apply_landlock(script_path)?;
+    landlock::apply_land_lock(script_path)?;
 
     Ok(())
 }

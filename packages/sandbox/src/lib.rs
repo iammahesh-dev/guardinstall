@@ -1,4 +1,6 @@
 mod linux;
+mod macos;
+mod windows;
 
 use napi_derive::napi;
 
@@ -13,29 +15,13 @@ pub fn sandbox_process(script_path: String) -> napi::Result<()> {
 
     match platform {
         "linux" => linux::sandbox_linux(&script_path),
-        "macos" => sandbox_macos(&script_path),
-        "windows" => sandbox_windows(&script_path),
+        "macos" => macos::sandbox_macos(&script_path),
+        "windows" => windows::sandbox_windows(&script_path),
         _ => Err(napi::Error::new(
             napi::Status::GenericFailure,
             "Unsupported platform".to_string(),
         )),
     }
-}
-
-fn sandbox_macos(_script_path: &str) -> napi::Result<()> {
-    // Phase 4: macOS Seatbelt implementation
-    Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "macOS sandbox not yet implemented".to_string(),
-    ))
-}
-
-fn sandbox_windows(_script_path: &str) -> napi::Result<()> {
-    // Phase 4: Windows Job Objects implementation
-    Err(napi::Error::new(
-        napi::Status::GenericFailure,
-        "Windows sandbox not yet implemented".to_string(),
-    ))
 }
 
 #[cfg(test)]

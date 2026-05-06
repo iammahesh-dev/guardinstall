@@ -98,9 +98,10 @@ program
 program
   .command('audit')
   .description('Scan existing node_modules for install script behavior')
-  .action(async () => {
+  .option('--json', 'Output in JSON format')
+  .action(async (options) => {
     const { auditExisting } = await import('./audit')
-    await auditExisting()
+    await auditExisting(options.json)
   })
 
 program.parse()
