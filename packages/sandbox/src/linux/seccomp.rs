@@ -2,48 +2,56 @@
 //! Uses seccompiler crate to build BPF programs.
 
 use napi::{Error, Status};
-
-/// Syscall numbers for x86_64 Linux
-const SYS_EXECVE: i32 = 59;
-const SYS_EXECVEAT: i32 = 322;
-const SYS_PTRACE: i32 = 101;
-const SYS_SOCKET: i32 = 41;
-
-/// Check if a syscall should be blocked
-pub fn is_dangerous_syscall(syscall_num: i32) -> bool {
-    matches!(syscall_num, SYS_EXECVE | SYS_EXECVEAT | SYS_PTRACE)
-}
+use seccompiler::{BpfProgram, SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter, SeccompRule, TargetArch};
+use std::collections::BTreeMap;
 
 /// Apply seccomp filter to current process
 pub fn apply_seccomp() -> napi::Result<()> {
-    // Phase 2: Real implementation would:
-    // 1. Call prctl(PR_SET_NO_NEW_PRIVS, 1)
-    let ret = unsafe {
-        libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0)
-    };
+    let filter = build_seccomp_filter()
+        .map_err(|e| Error::new(Status::GenericFailure, format!("Failed to build seccomp filter: {}", e)))?;
 
-    if ret != 0 {
-        return Err(Error::new(
-            Status::GenericFailure,
-            format!("prctl(PR_SET_NO_NEW_PRIVS) failed: {}",
-                std::io::Error::last_os_error())
-        ));
-    }
+    seccompiler::apply_filter(&filter)
+        .map_err(|e| Error::new(Status::GenericFailure, format!("Failed to apply seccomp filter: {}", e)))?;
 
-    // 2. Load BPF via prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, prog)
-    // For now, return Ok
     Ok(())
 }
 
-/// Build BPF filter program (for testing/validation)
-pub fn build_seccomp_filter() -> Result<Vec<u8>, Error> {
-    let mut filter = Vec::new();
+/// Build BPF filter program that blocks dangerous syscalls
+pub fn build_seccomp_filter() -> Result<BpfProgram, Box<dyn std::error::Error>> {
+    let mut rules: BTreeMap<i64, Vec<SeccompRule>> = BTreeMap::new();
 
-    // Allow all syscalls by default, block specific ones
-    // BPF instruction: if syscall == execve => return EPERM
-    // This is simplified - real implementation uses seccompiler crate.
+    // Block execve (spawning new processes) - unconditional block
+    rules.insert(libc::SYS_execve, vec![]);
 
-    Ok(filter)
+    // Block execveat - unconditional block
+    rules.insert(libc::SYS_execveat, vec![]);
+
+    // Block ptrace (anti-sandbox detection) - unconditional block
+    rules.insert(libc::SYS_ptrace, vec![]);
+
+    // Block socket(AF_INET) - only when domain == AF_INET
+    let socket_condition = SeccompCondition::new(
+        0,  // arg0 (domain)
+        SeccompCmpArgLen::Dword,
+        SeccompCmpOp::Eq,
+        libc::AF_INET as u64,
+    )?;
+    rules.insert(libc::SYS_socket, vec![SeccompRule::new(vec![socket_condition])?]);
+
+    let filter = SeccompFilter::new(
+        rules,
+        SeccompAction::Errno(libc::EPERM as u32),  // Action when rule matches
+        SeccompAction::Allow,                       // Default action (allow others)
+        TargetArch::x86_64,                        // Target architecture
+    )?;
+
+    let program: BpfProgram = filter.try_into()?;
+    Ok(program)
+}
+
+/// Check if a syscall should be blocked (for testing)
+pub fn is_dangerous_syscall(syscall_num: i32) -> bool {
+    matches!(syscall_num as i64, libc::SYS_execve | libc::SYS_execveat | libc::SYS_ptrace)
 }
 
 #[cfg(test)]
@@ -52,15 +60,17 @@ mod tests {
 
     #[test]
     fn test_dangerous_syscall_detection() {
-        assert!(is_dangerous_syscall(SYS_EXECVE));
-        assert!(is_dangerous_syscall(SYS_EXECVEAT));
-        assert!(is_dangerous_syscall(SYS_PTRACE));
-        assert!(!is_dangerous_syscall(SYS_SOCKET));
+        assert!(is_dangerous_syscall(libc::SYS_execve as i32));
+        assert!(is_dangerous_syscall(libc::SYS_execveat as i32));
+        assert!(is_dangerous_syscall(libc::SYS_ptrace as i32));
+        assert!(!is_dangerous_syscall(libc::SYS_socket as i32));
     }
 
     #[test]
-    fn test_apply_seccomp_does_not_panic() {
-        // Note: prctl may fail in test env, so we just check it doesn't panic
-        let _result = apply_seccomp();
+    fn test_build_seccomp_filter() {
+        let result = build_seccomp_filter();
+        assert!(result.is_ok(), "Failed to build filter: {:?}", result.err());
+        let program = result.unwrap();
+        assert!(!program.is_empty());
     }
 }

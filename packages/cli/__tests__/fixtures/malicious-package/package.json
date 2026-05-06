@@ -1,0 +1,8 @@
+{
+  "name": "malicious-package",
+  "version": "1.0.0",
+  "description": "Test fixture for malicious package detection",
+  "scripts": {
+    "postinstall": "sh postinstall.sh"
+  }
+}
