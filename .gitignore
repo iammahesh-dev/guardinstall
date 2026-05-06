@@ -29,3 +29,5 @@ Cargo.lock
 # pnpm
 .pnpm-debug.log*
 .pnpm-state.json
+
+AGENTS.md
