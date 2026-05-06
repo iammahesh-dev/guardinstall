@@ -4,33 +4,65 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
+    branches: [dev, main]
+    paths: ['packages/sandbox/**']
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             binary: libguardinstall_sandbox.so
+            build-cmd: |
+              cd packages/sandbox && cargo build --release --target x86_64-unknown-linux-gnu
+
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             binary: libguardinstall_sandbox.so
+            build-cmd: |
+              sudo apt-get update
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+              cd packages/sandbox && cargo build --release --target aarch64-unknown-linux-gnu
+
           - os: macos-latest
             target: x86_64-apple-darwin
             binary: libguardinstall_sandbox.dylib
+            build-cmd: |
+              cd packages/sandbox && cargo build --release --target x86_64-apple-darwin
+
           - os: macos-latest
             target: aarch64-apple-darwin
             binary: libguardinstall_sandbox.dylib
+            build-cmd: |
+              cd packages/sandbox && cargo build --release --target aarch64-apple-darwin
+
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             binary: guardinstall_sandbox.dll
+            build-cmd: |
+              cd packages/sandbox && cargo build --release --target x86_64-pc-windows-msvc
 
     steps:
-      - uses: actions/check-out@v4
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           target: ${{ matrix.target }}
@@ -41,18 +73,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Build
-        run: cd packages/sandbox && cargo build --release --target ${{ matrix.target }}
+      - name: Build native addon
+        run: ${{ matrix.build-cmd }}
 
       - name: Upload binaries to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: ./packages/sandbox/target/${{ matrix.target }}/release/${{ matrix.binary }}
+          files: ./packages/sandbox/target/${{ matrix.target }}/release/${{ matrix.inary }}
           tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload binaries as artifacts
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.target }}-binary
