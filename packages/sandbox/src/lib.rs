@@ -1,6 +1,7 @@
 mod linux;
 mod macos;
 mod windows;
+mod benchmark;
 
 use napi_derive::napi;
 
