@@ -31,3 +31,4 @@ Cargo.lock
 .pnpm-state.json
 
 AGENTS.md
+graphify-out/
