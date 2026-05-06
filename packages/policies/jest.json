@@ -1,0 +1,16 @@
+{
+  "package": "jest",
+  "versions": ">=29.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [],
+      "reason": "No network needed"
+    },
+    "filesystem": {
+      "writes": ["./build", "./packages"],
+      "reason": "Test framework"
+    },
+    "exec": true
+  }
+}

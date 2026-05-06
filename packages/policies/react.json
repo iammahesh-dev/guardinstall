@@ -1,0 +1,16 @@
+{
+  "package": "react",
+  "versions": ">=17.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [],
+      "reason": "No network needed"
+    },
+    "filesystem": {
+      "writes": ["./cjs", "./umd"],
+      "reason": "React library package"
+    },
+    "exec": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "package": "next",
+  "versions": ">=13.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org"],
+      "reason": "Downloads platform-specific dependencies"
+    },
+    "filesystem": {
+      "writes": ["./dist", "./export"],
+      "reason": "React framework"
+    },
+    "exec": false
+  }
+}
