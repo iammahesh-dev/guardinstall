@@ -6,7 +6,7 @@ use seccompiler::{BpfProgram, SeccompAction, SeccompCmpArgLen, SeccompCmpOp, Sec
 use std::collections::BTreeMap;
 
 /// Apply seccomp filter to current process
-pub fn apply_seccomp() -> napi::Result<()> {
+pub fn apply_seccomp() -> Result<(), Box<dyn std::error::Error>> {
     let filter = build_seccomp_filter()
         .map_err(|e| Error::new(Status::GenericFailure, format!("Failed to build seccomp filter: {}", e)))?;
 

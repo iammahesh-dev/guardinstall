@@ -9,7 +9,7 @@ use std::fs;
 /// Apply Landlock rules to restrict filesystem access
 /// Only allows read-write to /tmp and package directory
 /// NOTE: This is currently a no-op. Landlock enforcement is tracked in GitHub issues.
-pub fn apply_land_lock(_package_path: &str) -> Result<(), Error> {
+pub fn apply_land_lock(_package_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Check if Landlock is available at runtime
     if is_land_lock_available() {
         // Landlock is available but not yet enforced

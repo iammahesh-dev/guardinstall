@@ -1,21 +1,12 @@
 import { PackageInfo } from './resolver'
 import chalk from 'chalk'
-import { sandboxProcess } from '@guardinstall/sandbox'
+import { runSandboxed } from './sandboxer'
+import { SandboxEvent } from '@guardinstall/policy-engine'
 
 export interface SandboxResult {
-  package: string
-  blocked: boolean
+  package: string;
+  blocked: boolean;
   events: SandboxEvent[]
-}
-
-export interface SandboxEvent {
-  event: string
-  package: string
-  syscall?: string
-  args?: unknown
-  path?: string
-  action: 'blocked' | 'allowed' | 'logged'
-  timestamp_ns: number
 }
 
 export async function runSandbox(
@@ -44,40 +35,15 @@ export async function runSandbox(
 async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
   console.log(chalk.gray(`  Sandboxing ${pkg.name}@${pkg.version}...`))
 
-  // Run the install script in Rust sandbox
-  // The sandbox will apply seccomp-BPF, namespaces, Landlock
-  // and emit events via stdout (JSON lines)
-  const scriptPath = `${pkg.path}/postinstall.sh`  // or the actual script path
+  // Determine script path
+  const scriptPath = `${pkg.path}/postinstall.sh`
 
-  const events: SandboxEvent[] = []
+  // Run script in sandboxed environment using Rust binary
+  const result = runSandboxed(scriptPath, pkg.name)
 
-  try {
-    // Call Rust sandbox via napi
-    const result = sandboxProcess(scriptPath)
-
-    // Parse events from Rust stdout (JSON lines)
-    // For now, just return basic result
-    return {
-      package: pkg.name,
-      blocked: false,  // TODO: determine from events
-      events
-    }
-  } catch (error: any) {
-    // Sandbox blocked the script or it failed
-    events.push({
-      event: 'script_blocked',
-      package: `${pkg.name}@${pkg.version}`,
-      syscall: undefined,
-      args: error.message,
-      path: undefined,
-      action: 'blocked',
-      timestamp_ns: Date.now() * 1000000
-    })
-
-    return {
-      package: pkg.name,
-      blocked: true,
-      events
-    }
+  return {
+    package: pkg.name,
+    blocked: result.blocked,
+    events: result.events,
   }
 }
