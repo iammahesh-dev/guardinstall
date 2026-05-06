@@ -1,0 +1,16 @@
+{
+  "package": "pg",
+  "versions": ">=8.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [],
+      "reason": "No network needed during install"
+    },
+    "filesystem": {
+      "writes": ["./lib", "./build"],
+      "reason": "PostgreSQL client library"
+    },
+    "exec": true
+  }
+}

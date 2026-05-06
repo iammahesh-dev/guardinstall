@@ -1,0 +1,16 @@
+{
+  "package": "d3",
+  "versions": ">=7.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [],
+      "reason": "No network needed"
+    },
+    "filesystem": {
+      "writes": ["./dist"],
+      "reason": "Visualization library"
+    },
+    "exec": false
+  }
+}
