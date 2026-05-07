@@ -63,6 +63,17 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
    - Fix: add a parallel BPF instruction set for `AUDIT_ARCH_AARCH64 = 0xc00000b7`.
    - Note: Current 6-instruction filter works on x86-64. ARM64 support needs actual ARM64 hardware to test.
 
+### LOW — Platform Expansion (non-Linux is currently non-functional)
+
+2. **Test macOS Seatbelt integration**
+   - `macos/seatbelt.rs` exists and is wired in `sandboxer.rs` via `#[cfg(target_os = "macos")]`
+   - Needs end-to-end testing on a real macOS machine.
+
+3. **Test Windows Job Objects integration**
+   - `windows/job_objects.rs` is wired in `sandboxer.rs` via `#[cfg(target_os = "windows")]`
+   - Needs end-to-end testing on Windows 10+.
+   - Note: `job_objects.rs` is partially implemented but `SetInformationJobObject` for network restriction needs completion.
+
 ### ✅ COMPLETED (in this session)
 
 - ✅ **Block ALL socket syscalls** (IPv4/IPv6/Unix) - simplified BPF filter (commit `fb1a8fa`)
@@ -71,6 +82,7 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - ✅ **Push `dev` branch to remote** - pushed to `origin/dev` (commit `6462724`)
 - ✅ **Coordinate policy allowlist with kernel-level block** - added `--no-seccomp` flag (commit `c72546f`)
 - ✅ **Comprehensive integration tests** - tested malicious & legit patterns (see `test-integration.sh`)
+- ✅ **Fix macOS/Windows stub dispatch** - wired up `mod.rs` to call real implementations (commit pending)
 
 ### MEDIUM — Robustness & Completeness
 

@@ -27,9 +27,15 @@ const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
     libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x00000000 },
 ];
 
-// Declare landlock module (from bin/landlock.rs)
+// Declare platform-specific modules
 #[cfg(target_os = "linux")]
 mod landlock;
+
+#[cfg(target_os = "macos")]
+mod macos;
+
+#[cfg(target_os = "windows")]
+mod windows;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -58,16 +64,34 @@ fn main() {
 
     if pid == 0 {
         // Child process - apply restrictions and run script
+        
+        // Platform-specific sandboxing
         #[cfg(target_os = "linux")]
         {
             landlock::apply_land_lock(script_path).unwrap_or_else(|e| {
                 eprintln!("Warning: Landlock not applied: {}", e);
             });
+            
+            // Only apply seccomp if not in relaxed mode
+            if !no_seccomp {
+                apply_seccomp();
+            }
         }
         
-        // Only apply seccomp if not in relaxed mode
-        if !no_seccomp {
-            apply_seccomp();
+        #[cfg(target_os = "macos")]
+        {
+            macos::sandbox_macos(script_path).unwrap_or_else(|e| {
+                eprintln!("macOS sandbox failed: {}", e);
+                process::exit(1);
+            });
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            windows::sandbox_windows(script_path).unwrap_or_else(|e| {
+                eprintln!("Windows sandbox failed: {}", e);
+                process::exit(1);
+            });
         }
         
         // Use syscall(SYS_execve) directly (not Command::new())
