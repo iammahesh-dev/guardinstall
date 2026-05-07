@@ -2,8 +2,8 @@
 
 > **Project:** guardinstall - Kernel-level behavioral sandbox for npm/pnpm/bun install scripts  
 > **Repo:** `git@github.com:iammahesh-dev/guardinstall.git`  
-> **Current Branch:** `dev` (all work happens here)  
-> **Main Branch:** `main` (clean, only updated when explicitly requested)  
+> **Current Branch:** `main` (production releases)  
+> **Dev Branch:** `dev` (ALL development happens here)  
 > **Last Updated:** 2026-05-07
 
 ---
@@ -20,10 +20,10 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 ## Current Status (as of 2026-05-07)
 
 ### Git State
-- **Branch:** `dev` (ALL development happens here)
-- **Main:** `main` (clean at commit `dc39488`, NOT updated unless explicitly requested)
+- **Branch:** `main` (production releases)
 - **Remote:** `origin` → `git@github.com:iammahesh-dev/guardinstall.git`
-- **Latest commit on dev:** `5458f05` - "docs: update AGENTS.md - all platform stubs fixed"
+- **Latest commit:** `9c40c62` - "Fix: fallback for npm arborist bug, publish v0.1.4"
+- **npm package:** `@guardinstall/cli@0.1.4` (published and installable)
 
 ### Buildspec Completion (ALL GAPS FIXED - SANDBOX NOW WORKING! ✅)
 - Phase 1: CLI Foundation — DONE
@@ -31,6 +31,14 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - Phase 3: Policy Engine + UX — DONE
 - Phase 4: Cross-Platform Support — DONE
 - Phase 5: Community & Ecosystem — DONE
+
+### npm Publication Status ✅
+- **npm package:** `@guardinstall/cli@0.1.4`
+- **Install:** `npm install -g @guardinstall/cli@0.1.4`
+- **Published packages:**
+  - `@guardinstall/sandbox@0.1.4`
+  - `@guardinstall/policy-engine@0.1.4`
+  - `@guardinstall/cli@0.1.4`
 
 ### Seccomp BPF + Landlock Status (WORKING! ✅)
 **FULLY SOLVED:** Both seccomp-BPF and Landlock now work in Rust!
@@ -43,7 +51,8 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - ✅ Script CANNOT read `/etc/passwd` (Landlock blocks it)
 - ✅ Script CANNOT make network connections (socket blocked)
 - ✅ Full integration tested: CLI → sandboxer.ts → sandboxer binary → blocks malicious.sh
-- ✅ Commit: `5458f05` on `dev` branch
+- ✅ Commit: `9c40c62` on `main` branch
+- ✅ Published to npm: `@guardinstall/cli@0.1.4`
 
 **Tested:**
 - ✅ `cat /etc/passwd` → Permission denied (Landlock)

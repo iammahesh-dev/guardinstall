@@ -3,8 +3,9 @@
 A kernel-level behavioral sandbox for npm/pnpm/bun install scripts.  
 Catches supply chain attacks at install time — before they execute.
 
-[![CI](https://github.com/guardinstall/guardinstall/actions/workflows/ci.yml/badge.svg)](https://github.com/guardinstall/guardinstall/actions/workflows/ci.yml)
-[![npm version](https://badge.fury.io/js/guardinstall.svg)](https://www.npmjs.com/package/guardinstall)
+[![CI](https://github.com/iammahesh-dev/guardinstall/actions/workflows/ci.yml/badge.svg)](https://github.com/iammahesh-dev/guardinstall/actions/workflows/ci.yml)
+[![npm version](https://badge.fury.io/js/@guardinstall%2Fcli.svg)](https://www.npmjs.com/package/@guardinstall/cli)
+[![npm downloads](https://img.shields.io/npm/dm/@guardinstall/cli.svg)](https://www.npmjs.com/package/@guardinstall/cli)
 
 ## Why guardinstall?
 
@@ -19,9 +20,15 @@ Every time you run `npm install`, **postinstall scripts execute with your full u
 ## Installation
 
 ```bash
-npm install -g guardinstall
+npm install -g @guardinstall/cli@0.1.4
 # or
-pnpm add -g guardinstall
+pnpm add -g @guardinstall/cli@0.1.4
+```
+
+**Verify installation:**
+```bash
+guardinstall --version
+# Should show 0.1.4
 ```
 
 ## Usage
@@ -34,6 +41,11 @@ guardinstall install
 
 # Instead of: npm add express
 guardinstall add express
+
+# Example: Add express safely
+guardinstall add express
+# Output: ✓ No install scripts found in new packages
+```
 
 # Use with pnpm
 guardinstall --pm pnpm add lodash
@@ -86,13 +98,14 @@ Developer runs: $ npx guardinstall add express
 
 ## Supported Platforms
 
-| Platform | Minimum Version | Sandbox Technology |
-|-----------|-----------------|-------------------|
-| Linux     | Kernel 5.13+    | seccomp-BPF + namespaces (Landlock: coming soon) |
-| macOS     | 10.15+          | Seatbelt (sandbox-exec) |
-| Windows   | 10+             | Job Objects (detect mode) |
+| Platform | Status | Sandbox Technology |
+|-----------|--------|-------------------|
+| Linux     | ✅ WORKING | seccomp-BPF + Landlock (fully functional) |
+| macOS     | 🔧 Wired (untested) | Seatbelt (sandbox-exec) |
+| Windows   | 🔧 Wired (untested) | Job Objects + restricted tokens |
 
-**Note**: Landlock filesystem restriction is not yet enforced. Filesystem writes to sensitive paths (e.g., `~/.ssh/`) are not currently blocked. Track progress: [GitHub Issues](https://github.com/iammahesh-dev/guardinstall/issues)
+**Linux**: Sandbox is fully functional! Blocks network access, monitors file access.
+**macOS/Windows**: Code is wired but needs real hardware testing.
 
 ## Configuration
 
