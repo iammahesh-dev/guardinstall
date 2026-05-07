@@ -56,28 +56,46 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 
 ## TODO / Next Steps
 
-### HIGH PRIORITY
-1. **Push working sandbox to remote `dev`**
-   - Commit `34cd0a2` needs to be pushed to `origin/dev`
+### HIGH — Correctness Gaps (the tool misbehaves in real scenarios)
+
+1. **Coordinate policy allowlist with kernel-level block** (`packages/cli/src/sandboxer.ts`, `packages/policy-engine/src/allowlist.ts`)
+   - The policy engine can mark a network event as "allowed" (e.g. esbuild's CDN download), but the kernel has already killed the process via seccomp before any event reaches the policy engine.
+   - Result: esbuild and other legit packages that download binaries will always be blocked even though they have verified profiles.
+   - Fix: apply policy allowlist *before* sandboxing — if a package's network targets are fully covered by its verified profile, run it with a relaxed sandbox (block only non-allowlisted hosts), else apply the full kill filter.
+
+2. **Add comprehensive integration tests with real packages**
+   - Test with known-malicious npm package patterns (curl exfil, `cat ~/.ssh/id_rsa`, env var harvest).
+   - Test with known-legit packages that have install scripts: `esbuild`, `sharp`, `node-gyp`, `sqlite3`.
+   - Verify legit packages are NOT blocked after fix #1 above.
+
+3. **Fix binary path lookup silent false-positive** (`packages/cli/src/sandboxer.ts:62-73`)
+   - If the `sandboxer` binary is not found at any of the 6 checked paths, the fallback is a string concatenation that is never existence-checked — binary invocation fails, and the catch block returns `blocked: true`.
+   - This means a missing binary silently blocks every install (false positive storm).
+   - Fix: throw a clear error if binary is not found; do not return `blocked: true` for a missing binary.
+
+### MEDIUM — Robustness & Completeness
+
+4. **ARM64 seccomp support** (`packages/sandbox/src/bin/sandboxer.rs:16`)
+   - BPF filter hardcodes x86-64 architecture check (`k: 0xc000003e`). On ARM64 the arch check fails and the filter falls through to ALLOW — seccomp does nothing.
+   - Fix: add a parallel BPF instruction set for `AUDIT_ARCH_AARCH64 = 0xc00000b7`.
+
+5. **Clean up experimental `src/bin/` variants**
+   - 12 experimental binaries (`sandboxer_allow_all`, `sandboxer_block`, `sandboxer_exec`, etc.) remain in `src/bin/` and compile on every `cargo build --release`.
+   - Fix: delete all except `sandboxer.rs` and `landlock.rs`; or move experiments to a `sandbox/experiments/` directory excluded from the default build.
+
+6. **Push `dev` branch to remote** (if not already done)
+   - Latest commits should be verified as pushed to `origin/dev`.
    - Do NOT merge to `main` unless explicitly requested.
 
-2. **Add more comprehensive tests**
-   - Test with real malicious npm packages from npm registry
-   - Add unit tests for sandboxer binary
-   - Test edge cases (empty scripts, binary scripts, etc.)
+### LOW — Platform Expansion (non-Linux is currently non-functional)
 
-### LOW PRIORITY
-1. **ARM64 seccomp support**
-   - Add `cfg!(target_arch = "aarch64")` support
-   - Need to test on ARM64 machine or emulator.
+7. **macOS Seatbelt integration**
+   - `macos/seatbelt.rs` exists but is not tested end-to-end on macOS.
+   - Dispatch is wired in `sandboxer.rs` via `#[cfg(target_os = "macos")]` but needs a test run on a real macOS machine.
 
-2. **macOS Seatbelt integration**
-   - Dispatch in `sandboxer.rs` via `#[cfg(target_os = "macos")]`
-   - Test on macOS machine.
-
-3. **Windows Job Objects integration**
-   - Implement Windows sandboxing
-   - Test on Windows machine.
+8. **Windows Job Objects integration**
+   - `windows/job_objects.rs` is skeletal. Network restriction via Job Objects requires `SetInformationJobObject` with `JobObjectNetRateControlInformation`.
+   - Implement and test on Windows 10+.
 
 ---
 
@@ -134,8 +152,11 @@ graphify extract . --backend ollama  # Build/update graph
 
 ## Known Issues
 
-### None currently! 🎉
-The sandbox is fully working. All major gaps have been fixed.
+### Security
+- **Policy↔sandbox coordination gap** — legit packages with verified profiles (esbuild, sharp) are still killed by the kernel before the allowlist can exempt them (see TODO #1)
+
+### Reliability
+- **Missing binary → false positive** — if the `sandboxer` binary isn't found, every install is wrongly reported as blocked (see TODO #3)
 
 ---
 
@@ -205,3 +226,58 @@ cd ../cli && pnpm test
 - Landlock filesystem restrictions now working
 - **Full integration tested and working** ✅
 - **Graphify is powerful** - shows `build_seccomp_filter()` has 4 edges, connects to orchestrator
+
+---
+
+## Immediate Actions (session starting point — 2026-05-07)
+
+Pick up in this order. Each item is self-contained; stop at any point and the project is in a valid state.
+
+### 1. Fix IPv6/Unix socket bypass — `sandboxer.rs:15-28` (30 min)
+The BPF filter only kills `socket(AF_INET=2)`. Add two more rules to also kill `AF_INET6=10` and `AF_UNIX=1`.
+
+```rust
+// After the AF_INET check (k: 41), add:
+// Check if syscall == socket (41) AND arg0 == AF_INET6 (10)
+libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 10 },  // AF_INET6
+// Check if syscall == socket (41) AND arg0 == AF_UNIX (1)
+libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 1 },   // AF_UNIX
+```
+Rebuild: `cargo build --release --bin sandboxer`
+Test: run `malicious.sh` — should still block. Run a script that does `python3 -c "import socket; socket.socket(socket.AF_INET6, ...)"` — should be killed.
+
+### 2. Fix missing binary → false positive — `sandboxer.ts:62-73` (15 min)
+Replace the silent fallback with an explicit error:
+
+```typescript
+if (!binaryPath) {
+  throw new Error(
+    `guardinstall: sandboxer binary not found. Run 'cargo build --release --bin sandboxer' in packages/sandbox.`
+  )
+}
+```
+Remove the dead string concatenation on lines 71-72.
+
+### 3. Coordinate allowlist with sandbox — `sandboxer.ts` + `orchestrator.ts` (1-2 hrs)
+Before spawning the sandboxer, check the policy profile:
+- If `profile.maintainers_verified && version matches && all network targets in profile.expected_behavior.network.allowed_hosts` → run sandboxer with a relaxed filter (allow socket, block everything else)
+- Otherwise → run sandboxer with the full kill filter (current behaviour)
+
+This unblocks esbuild, sharp, node-gyp, and the other 100 profiled packages.
+
+### 4. Delete experimental bin variants (10 min)
+```bash
+cd packages/sandbox/src/bin
+rm sandboxer_allow_all.rs sandboxer_allow_all2.rs sandboxer_block.rs \
+   sandboxer_exec.rs sandboxer_lib.rs sandboxer_netns.rs sandboxer_seccomp.rs \
+   sandboxer_simple.rs sandboxer_socket.rs sandboxer_working.rs sandboxer_working_c.rs
+# Keep: sandboxer.rs, landlock.rs
+cargo build --release --bin sandboxer  # confirm still builds
+```
+Update `Cargo.toml` to remove the corresponding `[[bin]]` entries.
+
+### 5. Verify remote push
+```bash
+git log origin/dev..dev --oneline  # should be empty if already pushed
+git push origin dev                 # push if not
+```
