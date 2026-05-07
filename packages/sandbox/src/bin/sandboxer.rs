@@ -34,15 +34,19 @@ mod landlock;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} <script_path> <package_name>", args[0]);
+        eprintln!("Usage: {} <script_path> <package_name> [--no-seccomp]", args[0]);
         process::exit(1);
     }
 
     let script_path = &args[1];
     let package_name = &args[2];
+    let no_seccomp = args.len() > 3 && args[3] == "--no-seccomp";
 
     eprintln!("Running script: {}", script_path);
     eprintln!("Package: {}", package_name);
+    if no_seccomp {
+        eprintln!("Seccomp disabled (relaxed mode for verified packages)");
+    }
 
     // Fork the process
     let pid = unsafe { libc::fork() };
@@ -61,7 +65,10 @@ fn main() {
             });
         }
         
-        apply_seccomp();
+        // Only apply seccomp if not in relaxed mode
+        if !no_seccomp {
+            apply_seccomp();
+        }
         
         // Use syscall(SYS_execve) directly (not Command::new())
         let bash_path = "/bin/bash\0".as_ptr() as *const i8;

@@ -7,7 +7,29 @@ import { spawnSync, SpawnSyncReturns } from 'child_process';
 import * as path from 'path';
 import { SandboxEvent } from '@guardinstall/policy-engine';
 import * as os from 'os';
+import * as fs from 'fs';
 import chalk from 'chalk';
+
+interface PolicyProfile {
+  package: string;
+  versions: string;
+  maintainers_verified: boolean;
+  expected_behavior: {
+    network?: { allowed_hosts: string[]; reason: string };
+    filesystem?: { writes: string[]; reason: string };
+    exec: boolean;
+  };
+}
+
+function loadPolicy(packageName: string): PolicyProfile | null {
+  const policyPath = path.join(__dirname, '../../policy-engine/policies', `${packageName}.json`);
+  if (!fs.existsSync(policyPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(policyPath, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
 
 interface SandboxResult {
   package: string;
@@ -43,6 +65,10 @@ function getBinaryName(): string {
  */
 export function runSandboxed(scriptPath: string, packageName: string = 'unknown'): SandboxResult {
   const binaryName = getBinaryName();
+  
+  // Check if package has verified policy profile
+  const policy = loadPolicy(packageName);
+  const isVerified = policy && policy.maintainers_verified;
 
   // Look for binary in multiple locations:
   // 1. Relative to CLI package (for development)
@@ -74,9 +100,14 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
   }
 
   try {
+    // If package is verified, run in relaxed mode (no seccomp - allows network)
+    const args = isVerified 
+      ? [scriptPath, packageName, '--no-seccomp']
+      : [scriptPath, packageName];
+    
     const result: SpawnSyncReturns<string> = spawnSync(
       binaryPath,
-      [scriptPath, packageName],
+      args,
       {
         encoding: 'utf-8',
         timeout: 30000 // 30 second timeout
