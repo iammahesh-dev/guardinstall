@@ -45,13 +45,6 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - ❌ Main `sandboxer.rs` with BPF filter causes EINVAL
 - ❌ Blocking execve prevents bash from running scripts (core issue!)
 
-**Key Finding:**
-- C minimal filter (allow-all) → Works ✅
-- C filter blocking execve → Works ✅  
-- C filter blocking socket(AF_INET) → Fails with EINVAL (BPF complexity issue)
-- Rust `sandboxer_working_c` (exact C replica) → Works ✅
-- Rust `sandboxer.rs` (same BPF) → Fails ❌
-
 **Root Cause:** Blocking execve (59) prevents `/bin/bash` from executing scripts. Need different approach.
 
 **Solution Approach:**
@@ -67,6 +60,18 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - `sandboxer_netns` - Network namespace only ✅ (requires root)
 - `sandboxer_working_c` - **WORKING Rust replica of C** ✅
 - `sandboxer_seccomp` / `sandboxer_block` / `sandboxer_working` - BPF attempts ❌
+
+### Graphify Analysis (2026-05-07)
+**Graph Structure:**
+- 112 nodes · 104 edges · 12 communities
+- Extraction: 88% EXTRACTED · 12% INFERRED
+- God Nodes: `getInstallScripts()`, `auditExisting()`, `sandbox_linux()`, `build_seccomp_filter()`
+
+**Key Insights:**
+- `build_seccomp_filter()` has 4 edges - core function in `sandboxer.rs`
+- `runSandboxed()` in orchestrator.ts calls `sandboxer.ts` which invokes the binary
+- `apply_land_lock()` in landlock.rs is stubbed (API complexity)
+- Surprising: `auditExisting()` calls `runSandbox()` and `getInstallScripts()` (inference)
 
 ---
 
@@ -103,16 +108,16 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 
 6. **Commit and push working seccomp to `dev`**
    - Once `sandboxer.rs` works, commit to `dev`
-   - Do NOT merge to `main` unless explicitly requested
+   - Do NOT merge to `main` unless explicitly requested.
 
 ### LOW PRIORITY
 7. **ARM64 seccomp support**
    - Add `cfg!(target_arch = "aarch64")` support
-   - Need to test on ARM64 machine or emulator
+   - Need to test on ARM64 machine or emulator.
 
 8. **macOS Seatbelt integration**
    - Dispatch in `sandboxer.rs` via `#[cfg(target_os = "macos")]`
-   - Test on macOS machine
+   - Test on macOS machine.
 
 ---
 
@@ -141,7 +146,9 @@ git push origin dev    # Push only dev to remote
 
 # Graphify - update knowledge graph
 cd /home/mahi/app/guardinstall
-/pattern/to/graphify  # Run graphify skill
+export PATH="$HOME/.local/bin:$PATH"
+graphify extract . --backend ollama  # Build/update graph
+# Output: graphify-out/graph.html (open in browser)
 ```
 
 ---
@@ -211,6 +218,7 @@ cd ../cli && pnpm test
 - Seccomp BPF debugging is IN PROGRESS (see TODO above)
 - `sandboxer_working_c` is the working reference implementation
 - **DON'T block execve** (prevents bash from running scripts)
+- **Graphify graph available** at `graphify-out/graph.html`
 
 ---
 
@@ -233,9 +241,12 @@ cd ../cli && pnpm test
 2. ✅ Pushed updated `dev` to remote
 3. ✅ Created `sandboxer_working_c.rs` (WORKING Rust replica of C)
 4. ✅ Verified `sandboxer_working_c` blocks execve correctly
-5. ✅ Updated this AGENTS.md with current status
+5. ✅ Updated AGENTS.md with current status
 6. ✅ Identified root cause: blocking execve prevents bash from running
 7. ✅ Determined solution: DON'T block execve, use network namespace + Landlock
+8. ✅ Set up graphify (installed `graphifyy` package)
+9. ✅ Ran graphify on guardinstall codebase (112 nodes, 104 edges, 12 communities)
+10. ✅ Analyzed graph structure (god nodes, surprising connections)
 
 ### What's Left
 1. 🔄 Remove execve blocking from `sandboxer.rs`
@@ -251,3 +262,4 @@ cd ../cli && pnpm test
 - **Blocking execve prevents bash from running scripts** (core issue!)
 - Network namespace requires root (use `sudo` or capabilities)
 - Need different sandboxing strategy: network namespace + Landlock, NOT execve blocking
+- **Graphify is powerful** - shows `build_seccomp_filter()` has 4 edges, connects to orchestrator
