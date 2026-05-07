@@ -30,5 +30,5 @@ Cargo.lock
 .pnpm-debug.log*
 .pnpm-state.json
 
-AGENTS.md
+AGENTS*.md
 graphify-out/

@@ -27,8 +27,8 @@ jest.mock('./sandboxer', () => ({
 describe('Orchestrator', () => {
   it('should run sandbox for multiple packages', async () => {
     const packages: PackageInfo[] = [
-      { name: 'legit-pkg', version: '1.0.0', path: '/test', isNew: true },
-      { name: 'malicious-pkg', version: '1.0.0', path: '/test', isNew: true }
+      { name: 'legit-pkg', version: '1.0.0', path: '/test', isNew: true, scripts: {} },
+      { name: 'malicious-pkg', version: '1.0.0', path: '/test', isNew: true, scripts: { postinstall: 'evil' } }
     ]
 
     const results: SandboxResult[] = await runSandbox(packages, 2)
@@ -39,7 +39,7 @@ describe('Orchestrator', () => {
 
   it('should detect blocked packages', async () => {
     const packages: PackageInfo[] = [
-      { name: 'malicious-pkg', version: '1.0.0', path: '/test', isNew: true }
+      { name: 'malicious-pkg', version: '1.0.0', path: '/test', isNew: true, scripts: { postinstall: 'evil' } }
     ]
 
     const results: SandboxResult[] = await runSandbox(packages)

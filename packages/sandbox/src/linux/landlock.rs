@@ -3,7 +3,6 @@
 //! NOTE: Currently stubbed due to landlock crate API complexity.
 //! See: https://github.com/iammahesh-dev/guardinstall/issues (Landlock tracking issue)
 
-use napi::{Error, Status};
 use std::fs;
 
 /// Apply Landlock rules to restrict filesystem access

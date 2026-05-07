@@ -40,7 +40,58 @@ function isCurlOrWget(args: unknown): boolean {
 }
 
 function isExternalIP(args: unknown): boolean {
+  const addr = extractAddr(args)
+  if (!addr) return false;
+
+  // Allow private/loopback ranges
+  if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(addr)) return false
+  if (addr === 'localhost' || addr === '::1') return false;
+
+  // Allow known CDN/registry hostnames
+  const trustedHosts = ['registry.npmjs.org', 'cdn.jsdelivr.net', 'github.com',
+                       'objects.githubusercontent.com', 'dl.google.com']
+  if (trustedHosts.some(h => addr.includes(h))) return false;
+
   return true
+}
+
+function extractAddr(args: unknown): string | null {
+  if (typeof args === 'string') return args
+  if (typeof args === 'object' && args !== null) {
+    // Handle { addr: '185.220.101.47:443' }
+    if ('addr' in args && typeof (args as any).addr === 'string') {
+      const addr = (args as any).addr
+      // Remove port if present
+      return addr.split(':')[0]
+    }
+    // Handle array of strings
+    if (Array.isArray(args)) {
+      const found = args.find(arg => typeof arg === 'string' && /https?:\/\//.test(arg))
+      if (found && typeof found === 'string') {
+        try {
+          return new URL(found).hostname
+        } catch {
+          return found
+        }
+      }
+    }
+  }
+  return null
+}
+
+function extractAddress(args: unknown): string | null {
+  if (typeof args === 'string') return args
+  if (Array.isArray(args)) {
+    const found = args.find(arg => typeof arg === 'string' && /https?:\/\//.test(arg))
+    if (found && typeof found === 'string') {
+      try {
+        return new URL(found).hostname
+      } catch {
+        return found
+      }
+    }
+  }
+  return null
 }
 
 function isSensitivePath(path?: string): boolean {

@@ -2,6 +2,9 @@ import { PackageInfo } from './resolver'
 import chalk from 'chalk'
 import { runSandboxed } from './sandboxer'
 import { SandboxEvent } from '@guardinstall/policy-engine'
+import * as os from 'os'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export interface SandboxResult {
   package: string;
@@ -35,15 +38,38 @@ export async function runSandbox(
 async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
   console.log(chalk.gray(`  Sandboxing ${pkg.name}@${pkg.version}...`))
 
-  // Determine script path
-  const scriptPath = `${pkg.path}/postinstall.sh`
+  // Get the actual script command from package.json
+  const scriptCommand = pkg.scripts?.postinstall || pkg.scripts?.install || pkg.scripts?.preinstall
 
-  // Run script in sandboxed environment using Rust binary
-  const result = runSandboxed(scriptPath, pkg.name)
+  if (!scriptCommand) {
+    return {
+      package: pkg.name,
+      blocked: false,
+      events: []
+    }
+  }
 
-  return {
-    package: pkg.name,
-    blocked: result.blocked,
-    events: result.events,
+  // Write the script command to a temp shell file
+  const tmpFile = path.join(os.tmpdir(), `guardinstall-${pkg.name}-${Date.now()}.sh`)
+  const scriptContent = `#!/bin/sh\ncd "${pkg.path}"\n${scriptCommand}\n`
+
+  try {
+    fs.writeFileSync(tmpFile, scriptContent, { mode: 0o700 })
+
+    // Run script in sandboxed environment using Rust binary
+    const result = runSandboxed(tmpFile, pkg.name)
+
+    return {
+      package: pkg.name,
+      blocked: result.blocked,
+      events: result.events,
+    }
+  } finally {
+    // Clean up temp file
+    try {
+      fs.unlinkSync(tmpFile)
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }

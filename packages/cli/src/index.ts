@@ -26,8 +26,17 @@ program
     console.log(chalk.gray(`CI mode: ${options.ci ? 'enabled' : 'disabled'}\n`))
 
     try {
+      // Step 1: Install without running scripts (--ignore-scripts)
+      console.log(chalk.blue('📦 Installing packages without running scripts...\n'))
+      const installResult = await runPackageManager(options.pm, ['install', '--ignore-scripts'])
+      if (!installResult.success) {
+        console.error(chalk.red('Install failed'))
+        process.exit(1)
+      }
+
+      // Step 2: Find packages with install scripts
       const packages = await getInstallScripts(process.cwd())
-      console.log(chalk.green(`Found ${packages.length} packages with install scripts:\n`))
+      console.log(chalk.green(`\nFound ${packages.length} packages with install scripts:\n`))
 
       packages.forEach(pkg => {
         console.log(chalk.yellow(`  ${pkg.name}@${pkg.version}`))
@@ -38,6 +47,7 @@ program
         }
       })
 
+      // Step 3: Run install scripts through sandbox
       if (packages.length > 0) {
         const results = await runSandbox(packages)
         const verdicts: Verdict[] = results
@@ -60,14 +70,6 @@ program
           }
         }
       }
-
-      // Run the actual install
-      console.log(chalk.blue('\n📦 Running actual install...\n'))
-      const result = await runPackageManager(options.pm, ['install'])
-      if (!result.success) {
-        console.error(chalk.red('Install failed'))
-        process.exit(1)
-      }
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error)
       process.exit(1)
@@ -83,16 +85,35 @@ program
     console.log(chalk.gray(`Packages: ${packages.join(', ')}`))
     console.log(chalk.gray(`Using: ${options.pm}\n`))
 
-    // Run the actual add command
-    const result = await runPackageManager(options.pm, ['add', ...packages])
-    if (!result.success) {
+    // Step 1: Install without running scripts (--ignore-scripts)
+    const installResult = await runPackageManager(options.pm, ['add', '--ignore-scripts', ...packages])
+    if (!installResult.success) {
       console.error(chalk.red('Add failed'))
       process.exit(1)
     }
 
-    // Then audit the new packages
-    const { auditExisting } = await import('./audit')
-    await auditExisting()
+    // Step 2: Find new packages with install scripts
+    const newPackages = (await getInstallScripts(process.cwd())).filter(p => p.isNew)
+    if (newPackages.length > 0) {
+      console.log(chalk.blue(`\n🔍 Sandboxing ${newPackages.length} new package(s)...\n`))
+
+      // Step 3: Run install scripts through sandbox
+      const results = await runSandbox(newPackages)
+      const verdicts: Verdict[] = results
+        .filter(r => r.events.length > 0)
+        .map(r => evaluateEvents(r.events, r.package))
+
+      printReport(results, verdicts)
+
+      // Step 4: Check for critical issues
+      const blocked = verdicts.filter(v => v.severity === 'CRITICAL')
+      if (blocked.length > 0) {
+        console.log(chalk.red('\n❌ Critical security issues found!'))
+        await promptUser(blocked[0])
+      }
+    } else {
+      console.log(chalk.green('\n✓ No install scripts found in new packages'))
+    }
   })
 
 program

