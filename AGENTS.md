@@ -107,7 +107,8 @@ git push origin dev    # Push only dev to remote
 # Graphify - update knowledge graph
 cd /home/mahi/app/guardinstall
 export PATH="$HOME/.local/bin:$PATH"
-graphify extract . --backend ollama  # Build/update graph
+export OLLAMA_API_KEY="dummy"
+graphify extract .  # Build/update graph (uses ollama backend)
 # Output: graphify-out/graph.html (open in browser)
 ```
 
@@ -131,11 +132,14 @@ graphify extract . --backend ollama  # Build/update graph
 
 ## Known Issues
 
-### Security
-- **Policy↔sandbox coordination gap** — legit packages with verified profiles (esbuild, sharp) are still killed by the kernel before the allowlist can exempt them (see TODO #1)
+### None currently
+All previously identified critical and high issues have been resolved:
+- ✅ IPv6/Unix socket bypass — fixed (commit `fb1a8fa`)
+- ✅ Policy↔sandbox coordination gap — fixed (commit `c72546f`)
+- ✅ Missing binary → false positive — fixed (commit `d1b76d9`)
+- ✅ Experimental bin/ clutter — cleaned up (commit `6462724`)
 
-### Reliability
-- **Missing binary → false positive** — if the `sandboxer` binary isn't found, every install is wrongly reported as blocked (see TODO #3)
+Remaining open items are tracked in TODO above (ARM64, macOS, Windows).
 
 ---
 
@@ -220,55 +224,56 @@ cd ../cli && pnpm test
 
 ---
 
-## Immediate Actions (session starting point — 2026-05-07)
+## Immediate Actions (verified 2026-05-07 — ground truth from code + graph)
 
-Pick up in this order. Each item is self-contained; stop at any point and the project is in a valid state.
+### Verification summary
 
-### 1. Fix IPv6/Unix socket bypass — `sandboxer.rs:15-28` (30 min)
-The BPF filter only kills `socket(AF_INET=2)`. Add two more rules to also kill `AF_INET6=10` and `AF_UNIX=1`.
+All previously listed critical/high items have been confirmed done by reading the actual source:
+
+| Item | Done? | Verified at |
+|---|---|---|
+| IPv6/Unix socket bypass | ✅ Done | `sandboxer.rs:23` — kills syscall 41 unconditionally (all families) |
+| Binary path false-positive | ✅ Done | `sandboxer.ts:95-98` — throws explicit error |
+| Policy allowlist coordination | ✅ Done | `sandboxer.ts:103-105` + `sandboxer.rs:76-78` — `--no-seccomp` flag wired |
+| Experimental bin/ cleanup | ✅ Done | `src/bin/` has only `sandboxer.rs` + `landlock.rs`; one `[[bin]]` in Cargo.toml |
+| ARM64 seccomp | ❌ Not done | `sandboxer.rs:19` — x86-64 hardcoded, no ARM64 path |
+
+**Note on IPv6:** My earlier analysis was wrong. The BPF filter blocks syscall 41 (`socket`) unconditionally — it does not check the socket family argument. All families (AF_INET, AF_INET6, AF_UNIX) are blocked by the same rule.
+
+---
+
+### Remaining work
+
+#### 1. ARM64 seccomp — `sandboxer.rs:15-28` (MEDIUM, ~1 hr)
+`sandboxer.rs:19` hardcodes `k: 0xc000003e` (x86-64 arch constant). On ARM64, that check fails and the BPF filter falls through to ALLOW — seccomp is silently a no-op.
+
+Fix: add a second 6-instruction BPF block for `AUDIT_ARCH_AARCH64 = 0xc00000b7` and dispatch based on the arch field at runtime.
 
 ```rust
-// After the AF_INET check (k: 41), add:
-// Check if syscall == socket (41) AND arg0 == AF_INET6 (10)
-libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 10 },  // AF_INET6
-// Check if syscall == socket (41) AND arg0 == AF_UNIX (1)
-libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 1 },   // AF_UNIX
+// After the x86-64 block, add:
+// Check if AARCH64 architecture (A == 0xc00000b7)
+libc::sock_filter { code: 0x15, jt: 0, jf: 3, k: 0xc00000b7 },
+// Load syscall number
+libc::sock_filter { code: 0x20, jt: 0, jf: 0, k: 0x00000000 },
+// Check if syscall == socket (198 on aarch64), if true kill
+libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 198 },
+// Allow
+libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x7fff0000 },
+// Kill
+libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x00000000 },
 ```
-Rebuild: `cargo build --release --bin sandboxer`
-Test: run `malicious.sh` — should still block. Run a script that does `python3 -c "import socket; socket.socket(socket.AF_INET6, ...)"` — should be killed.
+Note: socket syscall number on aarch64 is 198, not 41. Needs ARM64 hardware or QEMU to test.
 
-### 2. Fix missing binary → false positive — `sandboxer.ts:62-73` (15 min)
-Replace the silent fallback with an explicit error:
-
-```typescript
-if (!binaryPath) {
-  throw new Error(
-    `guardinstall: sandboxer binary not found. Run 'cargo build --release --bin sandboxer' in packages/sandbox.`
-  )
-}
-```
-Remove the dead string concatenation on lines 71-72.
-
-### 3. Coordinate allowlist with sandbox — `sandboxer.ts` + `orchestrator.ts` (1-2 hrs)
-Before spawning the sandboxer, check the policy profile:
-- If `profile.maintainers_verified && version matches && all network targets in profile.expected_behavior.network.allowed_hosts` → run sandboxer with a relaxed filter (allow socket, block everything else)
-- Otherwise → run sandboxer with the full kill filter (current behaviour)
-
-This unblocks esbuild, sharp, node-gyp, and the other 100 profiled packages.
-
-### 4. Delete experimental bin variants (10 min)
+#### 2. Rebuild knowledge graph (housekeeping, 5 min)
+Graph at `graphify-out/graph.json` is stale — still contains nodes for the deleted experimental binaries (`sandboxer_simple`, `sandboxer_allow_all`, etc.). Run:
 ```bash
-cd packages/sandbox/src/bin
-rm sandboxer_allow_all.rs sandboxer_allow_all2.rs sandboxer_block.rs \
-   sandboxer_exec.rs sandboxer_lib.rs sandboxer_netns.rs sandboxer_seccomp.rs \
-   sandboxer_simple.rs sandboxer_socket.rs sandboxer_working.rs sandboxer_working_c.rs
-# Keep: sandboxer.rs, landlock.rs
-cargo build --release --bin sandboxer  # confirm still builds
+cd /home/mahi/app/guardinstall
+export PATH="$HOME/.local/bin:$PATH"
+graphify extract . --backend ollama --update
 ```
-Update `Cargo.toml` to remove the corresponding `[[bin]]` entries.
 
-### 5. Verify remote push
-```bash
-git log origin/dev..dev --oneline  # should be empty if already pushed
-git push origin dev                 # push if not
-```
+#### 3. macOS Seatbelt end-to-end test (LOW — needs macOS hardware)
+`macos::sandbox_macos()` is wired at `sandboxer.rs:83`. Not tested on real hardware yet.
+
+#### 4. Windows Job Objects network restriction (LOW — needs Windows hardware)
+`windows::sandbox_windows()` is wired at `sandboxer.rs:91` but `SetInformationJobObject` for network restriction is not fully implemented in `windows/job_objects.rs`.
