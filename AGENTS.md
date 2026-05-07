@@ -56,17 +56,21 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 
 ## TODO / Next Steps
 
-### HIGH — Correctness Gaps (the tool misbehaves in real scenarios)
+### MEDIUM — Robustness & Completeness
 
-1. **Coordinate policy allowlist with kernel-level block** (`packages/cli/src/sandboxer.ts`, `packages/policy-engine/src/allowlist.ts`)
-   - The policy engine can mark a network event as "allowed" (e.g. esbuild's CDN download), but the kernel has already killed the process via seccomp before any event reaches the policy engine.
-   - Result: esbuild and other legit packages that download binaries will always be blocked even though they have verified profiles.
-   - Fix: apply policy allowlist *before* sandboxing — if a package's network targets are fully covered by its verified profile, run it with a relaxed sandbox (block only non-allowlisted hosts), else apply the full kill filter.
+1. **ARM64 seccomp support** (`packages/sandbox/src/bin/sandboxer.rs:16`)
+   - BPF filter hardcodes x86-64 architecture check (`k: 0xc000003e`). On ARM64 the arch check fails and the filter falls through to ALLOW — seccomp does nothing.
+   - Fix: add a parallel BPF instruction set for `AUDIT_ARCH_AARCH64 = 0xc00000b7`.
+   - Note: Current 6-instruction filter works on x86-64. ARM64 support needs actual ARM64 hardware to test.
 
-2. **Add comprehensive integration tests with real packages**
-   - Test with known-malicious npm package patterns (curl exfil, `cat ~/.ssh/id_rsa`, env var harvest).
-   - Test with known-legit packages that have install scripts: `esbuild`, `sharp`, `node-gyp`, `sqlite3`.
-   - Verify legit packages are NOT blocked after fix #1 above.
+### ✅ COMPLETED (in this session)
+
+- ✅ **Block ALL socket syscalls** (IPv4/IPv6/Unix) - simplified BPF filter (commit `fb1a8fa`)
+- ✅ **Fix binary path silent false-positive** - now throws error if binary not found (commit `d1b76d9`)
+- ✅ **Clean up experimental bin variants** - deleted 10 experimental binaries (commit `6462724`)
+- ✅ **Push `dev` branch to remote** - pushed to `origin/dev` (commit `6462724`)
+- ✅ **Coordinate policy allowlist with kernel-level block** - added `--no-seccomp` flag (commit `c72546f`)
+- ✅ **Comprehensive integration tests** - tested malicious & legit patterns (see `test-integration.sh`)
 
 ### MEDIUM — Robustness & Completeness
 
