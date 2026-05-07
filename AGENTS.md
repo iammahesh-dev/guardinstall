@@ -78,6 +78,7 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 4. **ARM64 seccomp support** (`packages/sandbox/src/bin/sandboxer.rs:16`)
    - BPF filter hardcodes x86-64 architecture check (`k: 0xc000003e`). On ARM64 the arch check fails and the filter falls through to ALLOW — seccomp does nothing.
    - Fix: add a parallel BPF instruction set for `AUDIT_ARCH_AARCH64 = 0xc00000b7`.
+   - Note: Current 6-instruction filter works on x86-64. ARM64 support needs actual ARM64 hardware to test.
 
 5. **Clean up experimental `src/bin/` variants**
    - 12 experimental binaries (`sandboxer_allow_all`, `sandboxer_block`, `sandboxer_exec`, etc.) remain in `src/bin/` and compile on every `cargo build --release`.
