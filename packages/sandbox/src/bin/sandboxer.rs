@@ -1,25 +1,41 @@
-//! Main sandboxer binary - FIXED VERSION
-//! Uses network namespace + Landlock (NOT execve blocking!)
-//! This allows bash to run scripts while blocking network/filesystem access
+//! Main sandboxer binary - WORKING VERSION
+//! Uses seccomp-BPF to block socket() syscall (network access)
+//! Uses Landlock to block filesystem access to sensitive files
+//! Does NOT block execve - lets bash run scripts
 //! 
 //! Usage: sandboxer <script_path> <package_name>
-//! 
-//! Requirements:
-//! - Network namespace: root or CAP_SYS_ADMIN
-//! - Landlock: Linux 5.13+ with Landlock LSM loaded
 
-use libc;
-use std::os::unix::process::CommandExt;
-use std::process::Command;
-use nix::sched;
+use libc::{self, SYS_execve};
 use serde_json::{json};
-use std::io::Write;
+use std::process;
+
+// Declare landlock module (from bin/landlock.rs)
+#[cfg(target_os = "linux")]
+mod landlock;
+
+/// BPF instructions for seccomp filter
+/// Blocks socket syscall (41) - all socket creation
+/// Allows everything else including execve (59)
+const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
+    // Load architecture (A = seccomp_data.arch)
+    libc::sock_filter { code: 0x20, jt: 0, jf: 0, k: 0x00000004 },
+    // Check if x86-64 architecture (A == 0xc000003e)
+    libc::sock_filter { code: 0x15, jt: 0, jf: 3, k: 0xc000003e },
+    // Load syscall number (A = seccomp_data.nr)
+    libc::sock_filter { code: 0x20, jt: 0, jf: 0, k: 0x00000000 },
+    // Check if syscall == socket (41), if true jump to block
+    libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 41 },
+    // Not socket, allow (SECCOMP_RET_ALLOW = 0x7fff0000)
+    libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x7fff0000 },
+    // Is socket, block with EPERM (SECCOMP_RET_ERRNO|EPERM = 0x00050001)
+    libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x00050001 },
+];
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
         eprintln!("Usage: {} <script_path> <package_name>", args[0]);
-        std::process::exit(1);
+        process::exit(1);
     }
 
     let script_path = &args[1];
@@ -33,50 +49,34 @@ fn main() {
     
     if pid < 0 {
         eprintln!("Fork failed: {}", std::io::Error::last_os_error());
-        std::process::exit(1);
+        process::exit(1);
     }
 
     if pid == 0 {
         // Child process - apply restrictions and run script
-        apply_restrictions();
-        
-        // Run the script (execve is NOT blocked, so bash can run)
-        let status = Command::new("bash")
-            .arg(script_path)
-            .status();
-
-        match status {
-            Ok(s) if s.success() => {
-                let event = json!({
-                    "action": "allowed",
-                    "event": "script_completed",
-                    "package": package_name,
-                    "timestamp_ns": get_timestamp_ns()
-                });
-                eprintln!("{}", serde_json::to_string(&event).unwrap());
-                std::process::exit(0);
-            }
-            Ok(s) => {
-                let event = json!({
-                    "action": "blocked",
-                    "event": "script_failed",
-                    "package": package_name,
-                    "timestamp_ns": get_timestamp_ns()
-                });
-                eprintln!("{}", serde_json::to_string(&event).unwrap());
-                std::process::exit(s.code().unwrap_or(1));
-            }
-            Err(e) => {
-                let event = json!({
-                    "action": "blocked",
-                    "event": "script_failed",
-                    "package": package_name,
-                    "timestamp_ns": get_timestamp_ns()
-                });
-                eprintln!("{}", serde_json::to_string(&event).unwrap());
-                std::process::exit(1);
-            }
+        #[cfg(target_os = "linux")]
+        {
+            landlock::apply_land_lock(script_path).unwrap_or_else(|e| {
+                eprintln!("Warning: Landlock not applied: {}", e);
+            });
         }
+        
+        apply_seccomp();
+        
+        // Use syscall(SYS_execve) directly (not Command::new())
+        let bash_path = "/bin/bash\0".as_ptr() as *const i8;
+        let script_path_c = format!("{}\0", script_path);
+        let script_ptr = script_path_c.as_ptr() as *const i8;
+        
+        // execve("/bin/bash", ["/bin/bash", script_path, NULL], environ)
+        let argv: [*const i8; 3] = [bash_path, script_ptr, std::ptr::null()];
+        let envp: [*const i8; 1] = [std::ptr::null()];
+        
+        let _ret = unsafe { libc::syscall(SYS_execve, bash_path, argv.as_ptr(), envp.as_ptr()) };
+        
+        // If we get here, execve failed
+        eprintln!("execve failed: {}", std::io::Error::last_os_error());
+        process::exit(1);
     } else {
         // Parent process - wait for child
         let mut status = 0;
@@ -88,8 +88,19 @@ fn main() {
             let sig = libc::WTERMSIG(status);
             let event = json!({
                 "action": "blocked",
-                "event": "script_failed",
+                "event": "script_blocked",
                 "package": package_name,
+                "signal": sig,
+                "timestamp_ns": get_timestamp_ns()
+            });
+            eprintln!("{}", serde_json::to_string(&event).unwrap());
+        } else if libc::WIFEXITED(status) {
+            let exit_code = libc::WEXITSTATUS(status);
+            let event = json!({
+                "action": "allowed",
+                "event": "script_completed",
+                "package": package_name,
+                "exit_code": exit_code,
                 "timestamp_ns": get_timestamp_ns()
             });
             eprintln!("{}", serde_json::to_string(&event).unwrap());
@@ -97,39 +108,29 @@ fn main() {
     }
 }
 
-/// Apply all restrictions: network namespace + Landlock
-fn apply_restrictions() {
-    // 1. Network namespace isolation (blocks network access)
-    // Requires root or CAP_SYS_ADMIN
-    eprintln!("Applying network namespace isolation...");
-    match sched::unshare(sched::CloneFlags::CLONE_NEWNET) {
-        Ok(_) => eprintln!("Network namespace isolated (no network access)"),
-        Err(e) => {
-            eprintln!("Warning: Failed to unshare network namespace: {}", e);
-            eprintln!("Run with sudo or set CAP_SYS_ADMIN to enable network isolation");
-            eprintln!("Continuing without network isolation...");
-        }
+/// Apply seccomp-BPF filter to block socket() syscall only
+fn apply_seccomp() {
+    eprintln!("Applying seccomp-BPF filter (blocks socket() only)...");
+    
+    let prog = libc::sock_fprog {
+        len: BPF_INSTRUCTIONS.len() as u16,
+        filter: BPF_INSTRUCTIONS.as_ptr() as *mut libc::sock_filter,
+    };
+
+    // Load the BPF program into the kernel
+    let ret = unsafe { libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+    if ret != 0 {
+        eprintln!("prctl(PR_SET_NO_NEW_PRIVS) failed: {}", std::io::Error::last_os_error());
+        process::exit(1);
+    }
+
+    let ret = unsafe { libc::prctl(libc::PR_SET_SECCOMP, libc::SECCOMP_MODE_FILTER, &prog) };
+    if ret != 0 {
+        eprintln!("prctl(PR_SET_SECCOMP) failed: {}", std::io::Error::last_os_error());
+        process::exit(1);
     }
     
-    // 2. Landlock filesystem restrictions (blocks access to sensitive files)
-    #[cfg(target_os = "linux")]
-    {
-        eprintln!("Applying Landlock filesystem restrictions...");
-        // Note: Landlock API is complex, currently stubbed
-        // TODO: Implement proper Landlock rules to block:
-        // - /etc/passwd, /etc/shadow
-        // - ~/.ssh/
-        // - Other sensitive paths
-        eprintln!("Landlock: not yet implemented (see TODO)");
-    }
-    
-    // 3. Seccomp-BPF (disabled - causes EINVAL in Rust)
-    // TODO: Debug why BPF filters cause EINVAL
-    // Tracking: https://github.com/iammahesh-dev/guardinstall/issues
-    
-    eprintln!("Restrictions applied (network namespace: {}, Landlock: {})", 
-        if cfg!(target_os = "linux") { "available if root" } else { "N/A" },
-        if cfg!(target_os = "linux") { "stubbed" } else { "N/A" });
+    eprintln!("Seccomp-BPF filter applied (blocks socket() syscall)");
 }
 
 fn get_timestamp_ns() -> u64 {

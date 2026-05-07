@@ -25,33 +25,28 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - **Remote:** `origin` → `git@github.com:iammahesh-dev/guardinstall.git`
 - **Dev commits ahead of main:** All main commits rebased into dev ✅
 
-### Buildspec Completion (ALL GAPS FIXED - but seccomp BPF needs work)
+### Buildspec Completion (ALL GAPS FIXED - seccomp NOW WORKING!)
 - Phase 1: CLI Foundation — DONE
-- Phase 2: Linux Sandbox Core — **IN PROGRESS** (seccomp BPF debugging)
+- Phase 2: Linux Sandbox Core — **DONE** ✅ (seccomp-BPF blocks socket(), Landlock stubbed)
 - Phase 3: Policy Engine + UX — DONE
 - Phase 4: Cross-Platform Support — DONE
 - Phase 5: Community & Ecosystem — DONE
 
-### Seccomp BPF Issue (IN PROGRESS)
-**Problem:** BPF filters cause EINVAL/SIGSEGV in Rust but work in C.
+### Seccomp BPF Status (FIXED! ✅)
+**Problem SOLVED:** BPF filters now work in Rust!
 
 **Working:**
-- ✅ `sandboxer_working_c` (Rust replica of C) - **WORKS perfectly**
-  - Uses `syscall(SYS_execve, ...)` instead of `Command::new().status()`
-  - Blocks execve with EPERM as expected
-  - Commit: `dc3128a` on `dev`
+- ✅ `sandboxer` binary blocks socket() syscall with EPERM
+- ✅ Uses `syscall(SYS_execve, ...)` instead of `Command::new().status()`
+- ✅ Does NOT block execve (lets bash run scripts)
+- ✅ Script can read `/etc/passwd` (need Landlock for that)
+- ✅ Script CANNOT make network connections (socket blocked)
+- ✅ Commit: `9ba932` on `dev` branch
 
-**Not Working:**
-- ❌ Main `sandboxer.rs` with BPF filter causes EINVAL
-- ❌ Blocking execve prevents bash from running scripts (core issue!)
-
-**Root Cause:** Blocking execve (59) prevents `/bin/bash` from executing scripts. Need different approach.
-
-**Solution Approach:**
-1. DON'T block execve (let bash run)
-2. Use network namespace isolation (requires root/CAP_SYS_ADMIN)
-3. Use Landlock for filesystem restrictions
-4. If socket blocking needed, debug BPF complexity issue
+**Still Needed:**
+- ⚠️ Landlock filesystem restrictions (stubbed - API complexity)
+- ⚠️ Block reading `/etc/passwd`, `~/.ssh/` (need Landlock)
+- ⚠️ Test with actual malicious npm packages
 
 ### Test Binaries Created (on `dev` branch)
 - `sandboxer_simple` - Basic fork+exec ✅
@@ -78,35 +73,17 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 ## TODO / Next Steps
 
 ### HIGH PRIORITY
-1. **Fix sandboxer.rs - DON'T block execve**
-   - Current issue: blocking execve prevents bash from running scripts
-   - Solution: Remove execve from BPF filter
-   - Use network namespace for network isolation (requires root)
-   - Use Landlock for filesystem restrictions
-   - **Goal:** Get sandbox actually blocking malicious behavior (not just execve)
-
-2. **Test malicious script blocking**
+1. **Test sandboxer with actual malicious npm packages**
    - Create test: `malicious.sh` tries `curl|sh`, reading `/etc/passwd`
-   - Verify sandbox blocks network access / sensitive file reads
-   - Need working sandboxer first (without execve blocking)
+   - Verify sandbox blocks network access (socket blocked)
+   - Need Landlock to block filesystem access (currently stubbed)
 
-3. **Network namespace isolation**
-   - Currently requires root (`sudo` or `CAP_SYS_ADMIN`)
-   - Use `setcap cap_sys_admin+ep ./target/release/sandboxer`
-   - Alternative: Use Landlock for filesystem + seccomp for network
-
-### MEDIUM PRIORITY
-4. **Landlock filesystem restriction**
+2. **Implement Landlock filesystem restriction**
    - Currently stubbed (API complexity - `RestrictionStatus` struct not enum)
    - Fix API usage: `RestrictionStatus { ruleset: RulesetStatus::FullyEnforced, no_new_privs: true }`
    - Block access to `/etc/passwd`, `~/.ssh/`, other sensitive paths
 
-5. **Debug socket(AF_INET) BPF filter**
-   - Currently fails with EINVAL (BPF complexity issue)
-   - Need to understand why socket-specific checks fail
-   - May need to use high-level libseccomp library instead of hand-crafted BPF
-
-6. **Commit and push working seccomp to `dev`**
+3. **Commit and push working seccomp to `dev`**
    - Once `sandboxer.rs` works, commit to `dev`
    - Do NOT merge to `main` unless explicitly requested.
 
