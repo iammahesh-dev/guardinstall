@@ -33,17 +33,17 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - Phase 5: Community & Ecosystem — DONE
 
 ### Seccomp BPF Issue (IN PROGRESS)
-**Problem:** BPF filters cause SIGSEGV/EINVAL in Rust but work in C.
+**Problem:** BPF filters cause EINVAL/SIGSEGV in Rust but work in C.
 
 **Working:**
 - ✅ `sandboxer_working_c` (Rust replica of C) - **WORKS perfectly**
   - Uses `syscall(SYS_execve, ...)` instead of `Command::new().status()`
   - Blocks execve with EPERM as expected
-  - Commit: `6f55bad` on `dev`
+  - Commit: `dc3128a` on `dev`
 
 **Not Working:**
 - ❌ Main `sandboxer.rs` with BPF filter causes EINVAL
-- ❌ `sandboxer_seccomp`, `sandboxer_block`, etc. - all fail with EINVAL
+- ❌ Blocking execve prevents bash from running scripts (core issue!)
 
 **Key Finding:**
 - C minimal filter (allow-all) → Works ✅
@@ -52,7 +52,13 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - Rust `sandboxer_working_c` (exact C replica) → Works ✅
 - Rust `sandboxer.rs` (same BPF) → Fails ❌
 
-**Hypothesis:** Issue is in how Rust passes `sock_fprog` struct to `prctl`.
+**Root Cause:** Blocking execve (59) prevents `/bin/bash` from executing scripts. Need different approach.
+
+**Solution Approach:**
+1. DON'T block execve (let bash run)
+2. Use network namespace isolation (requires root/CAP_SYS_ADMIN)
+3. Use Landlock for filesystem restrictions
+4. If socket blocking needed, debug BPF complexity issue
 
 ### Test Binaries Created (on `dev` branch)
 - `sandboxer_simple` - Basic fork+exec ✅
@@ -67,20 +73,21 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 ## TODO / Next Steps
 
 ### HIGH PRIORITY
-1. **Fix seccomp BPF in main `sandboxer.rs`**
-   - `sandboxer_working_c` works → use same approach in `sandboxer.rs`
-   - Key: Use `syscall(SYS_execve, ...)` instead of `Command::new().status()`
-   - Simplify BPF filter: start with allow-all, then add one rule at a time
-   - **Goal:** Get BPF filter actually blocking malicious behavior
+1. **Fix sandboxer.rs - DON'T block execve**
+   - Current issue: blocking execve prevents bash from running scripts
+   - Solution: Remove execve from BPF filter
+   - Use network namespace for network isolation (requires root)
+   - Use Landlock for filesystem restrictions
+   - **Goal:** Get sandbox actually blocking malicious behavior (not just execve)
 
 2. **Test malicious script blocking**
    - Create test: `malicious.sh` tries `curl|sh`, reading `/etc/passwd`
    - Verify sandbox blocks network access / sensitive file reads
-   - Need to fix `sandboxer.rs` first
+   - Need working sandboxer first (without execve blocking)
 
 3. **Network namespace isolation**
    - Currently requires root (`sudo` or `CAP_SYS_ADMIN`)
-   - Consider using `unshare(CLONE_NEWNET)` with proper capabilities
+   - Use `setcap cap_sys_admin+ep ./target/release/sandboxer`
    - Alternative: Use Landlock for filesystem + seccomp for network
 
 ### MEDIUM PRIORITY
@@ -89,16 +96,21 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
    - Fix API usage: `RestrictionStatus { ruleset: RulesetStatus::FullyEnforced, no_new_privs: true }`
    - Block access to `/etc/passwd`, `~/.ssh/`, other sensitive paths
 
-5. **Commit and push working seccomp to `dev`**
+5. **Debug socket(AF_INET) BPF filter**
+   - Currently fails with EINVAL (BPF complexity issue)
+   - Need to understand why socket-specific checks fail
+   - May need to use high-level libseccomp library instead of hand-crafted BPF
+
+6. **Commit and push working seccomp to `dev`**
    - Once `sandboxer.rs` works, commit to `dev`
    - Do NOT merge to `main` unless explicitly requested
 
 ### LOW PRIORITY
-6. **ARM64 seccomp support**
+7. **ARM64 seccomp support**
    - Add `cfg!(target_arch = "aarch64")` support
    - Need to test on ARM64 machine or emulator
 
-7. **macOS Seatbelt integration**
+8. **macOS Seatbelt integration**
    - Dispatch in `sandboxer.rs` via `#[cfg(target_os = "macos")]`
    - Test on macOS machine
 
@@ -126,6 +138,10 @@ cd /home/mahi/app/guardinstall
 git checkout dev    # Always work on dev
 git push origin dev    # Push only dev to remote
 # NEVER push to main unless explicitly asked
+
+# Graphify - update knowledge graph
+cd /home/mahi/app/guardinstall
+/pattern/to/graphify  # Run graphify skill
 ```
 
 ---
@@ -146,6 +162,7 @@ git push origin dev    # Push only dev to remote
 
 ### 🔄 IN PROGRESS
 - **GAP 1**: Seccomp BPF filter — `sandboxer_working_c` works, need to apply to main `sandboxer.rs`
+- **Key Issue**: Blocking execve prevents bash from running → DON'T block execve!
 
 ---
 
@@ -154,7 +171,7 @@ git push origin dev    # Push only dev to remote
 ### Seccomp BPF Filter
 - **Issue:** BPF filter causes EINVAL/SIGSEGV in Rust but works in C
 - **Workaround:** `sandboxer_working_c` uses `syscall(SYS_execve, ...)` 
-- **Fix needed:** Apply same approach to main `sandboxer.rs`
+- **Fix needed:** Don't block execve, use network namespace + Landlock instead
 - **Tracking:** https://github.com/iammahesh-dev/guardinstall/issues (create issue)
 
 ### Landlock API
@@ -193,6 +210,7 @@ cd ../cli && pnpm test
 - `main` is kept clean (only updated when explicitly requested)
 - Seccomp BPF debugging is IN PROGRESS (see TODO above)
 - `sandboxer_working_c` is the working reference implementation
+- **DON'T block execve** (prevents bash from running scripts)
 
 ---
 
@@ -216,15 +234,20 @@ cd ../cli && pnpm test
 3. ✅ Created `sandboxer_working_c.rs` (WORKING Rust replica of C)
 4. ✅ Verified `sandboxer_working_c` blocks execve correctly
 5. ✅ Updated this AGENTS.md with current status
+6. ✅ Identified root cause: blocking execve prevents bash from running
+7. ✅ Determined solution: DON'T block execve, use network namespace + Landlock
 
 ### What's Left
-1. 🔄 Apply `sandboxer_working_c` approach to main `sandboxer.rs`
-2. 🔄 Get BPF filter actually blocking malicious behavior
-3. 🔄 Test malicious script (`malicious.sh`) is blocked
-4. 🔄 Commit working seccomp to `dev` (do NOT merge to `main`)
+1. 🔄 Remove execve blocking from `sandboxer.rs`
+2. 🔄 Add network namespace isolation (requires root/CAP_SYS_ADMIN)
+3. 🔄 Add Landlock filesystem restrictions
+4. 🔄 Test malicious script (`malicious.sh`) is actually blocked
+5. 🔄 Commit working sandboxer to `dev` (do NOT merge to `main`)
 
 ### Key Learning
 - C seccomp BPF works perfectly
 - Rust `sandboxer_working_c` (exact C replica) also works
 - Main `sandboxer.rs` fails → need to use `syscall(SYS_execve, ...)` approach
+- **Blocking execve prevents bash from running scripts** (core issue!)
 - Network namespace requires root (use `sudo` or capabilities)
+- Need different sandboxing strategy: network namespace + Landlock, NOT execve blocking
