@@ -1,10 +1,10 @@
 {
   "name": "@guardinstall/cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "CLI wrapper for guardinstall - intercepts and sandboxes install scripts",
   "main": "dist/index.js",
   "bin": {
-    "guardinstall": "./dist/index.js"
+    "guardinstall": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -13,8 +13,8 @@
     "test": "jest"
   },
   "dependencies": {
-    "@guardinstall/policy-engine": "workspace:*",
-    "@guardinstall/sandbox": "workspace:*",
+    "@guardinstall/policy-engine": "0.1.0",
+    "@guardinstall/sandbox": "0.1.0",
     "@npmcli/arborist": "7.5.4",
     "chalk": "4.1.2",
     "commander": "12.1.0"
