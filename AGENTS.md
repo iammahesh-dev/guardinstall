@@ -108,7 +108,7 @@ git push origin dev    # Push only dev to remote
 cd /home/mahi/app/guardinstall
 export PATH="$HOME/.local/bin:$PATH"
 export OLLAMA_API_KEY="dummy"
-graphify extract .  # Build/update graph (uses ollama backend)
+graphify extract . --backend ollama  # Build/update graph
 # Output: graphify-out/graph.html (open in browser)
 ```
 
