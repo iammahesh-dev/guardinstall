@@ -82,7 +82,7 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
 - ✅ **Push `dev` branch to remote** - pushed to `origin/dev` (commit `6462724`)
 - ✅ **Coordinate policy allowlist with kernel-level block** - added `--no-seccomp` flag (commit `c72546f`)
 - ✅ **Comprehensive integration tests** - tested malicious & legit patterns (see `test-integration.sh`)
-- ✅ **Fix macOS/Windows stub dispatch** - wired up `mod.rs` to call real implementations (commit pending)
+- ✅ **Fix macOS/Windows stub dispatch** - wired up `mod.rs` to call real implementations (commit `7dc0f84`)
 
 ### MEDIUM — Robustness & Completeness
 
