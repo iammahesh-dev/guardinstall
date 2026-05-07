@@ -68,25 +68,19 @@ guardinstall catches supply chain attacks at install time by sandboxing npm pack
    - Test with known-legit packages that have install scripts: `esbuild`, `sharp`, `node-gyp`, `sqlite3`.
    - Verify legit packages are NOT blocked after fix #1 above.
 
-3. **Fix binary path lookup silent false-positive** (`packages/cli/src/sandboxer.ts:62-73`)
-   - If the `sandboxer` binary is not found at any of the 6 checked paths, the fallback is a string concatenation that is never existence-checked — binary invocation fails, and the catch block returns `blocked: true`.
-   - This means a missing binary silently blocks every install (false positive storm).
-   - Fix: throw a clear error if binary is not found; do not return `blocked: true` for a missing binary.
-
 ### MEDIUM — Robustness & Completeness
 
-4. **ARM64 seccomp support** (`packages/sandbox/src/bin/sandboxer.rs:16`)
+3. **ARM64 seccomp support** (`packages/sandbox/src/bin/sandboxer.rs:16`)
    - BPF filter hardcodes x86-64 architecture check (`k: 0xc000003e`). On ARM64 the arch check fails and the filter falls through to ALLOW — seccomp does nothing.
    - Fix: add a parallel BPF instruction set for `AUDIT_ARCH_AARCH64 = 0xc00000b7`.
    - Note: Current 6-instruction filter works on x86-64. ARM64 support needs actual ARM64 hardware to test.
 
-5. **Clean up experimental `src/bin/` variants**
-   - 12 experimental binaries (`sandboxer_allow_all`, `sandboxer_block`, `sandboxer_exec`, etc.) remain in `src/bin/` and compile on every `cargo build --release`.
-   - Fix: delete all except `sandboxer.rs` and `landlock.rs`; or move experiments to a `sandbox/experiments/` directory excluded from the default build.
+### ✅ COMPLETED (in this session)
 
-6. **Push `dev` branch to remote** (if not already done)
-   - Latest commits should be verified as pushed to `origin/dev`.
-   - Do NOT merge to `main` unless explicitly requested.
+- ✅ **Block ALL socket syscalls** (IPv4/IPv6/Unix) - simplified BPF filter (commit `fb1a8fa`)
+- ✅ **Fix binary path silent false-positive** - now throws error if binary not found (commit `d1b76d9`)
+- ✅ **Clean up experimental bin variants** - deleted 10 experimental binaries (commit `6462724`)
+- ✅ **Push `dev` branch to remote** - pushed to `origin/dev` (commit `6462724`)
 
 ### LOW — Platform Expansion (non-Linux is currently non-functional)
 
