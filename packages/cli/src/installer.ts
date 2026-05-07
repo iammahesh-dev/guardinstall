@@ -8,10 +8,20 @@ export async function runPackageManager(
   const pmMap: Record<string, string> = {
     npm: 'npm',
     pnpm: 'pnpm',
-    bun: 'bun'
+    bun: 'bun',
   }
 
   const command = pmMap[pm] || 'npm'
+
+  // For install/add, we need to:
+  // 1. Run with --ignore-scripts to install packages
+  // 2. Then run scripts through sandbox
+  const hasIgnoreScripts = args.some(a => a.includes('ignore-scripts'))
+  
+  if (!hasIgnoreScripts && (args.includes('install') || args.includes('add'))) {
+    // Add --ignore-scripts flag
+    args.push('--ignore-scripts')
+  }
 
   console.log(chalk.gray(`\n📦 Running: ${command} ${args.join(' ')}\n`))
 

@@ -12,6 +12,11 @@ export const SCORING_RULES: ScoringRule[] = [
     message: 'Attempted outbound network connection during install'
   },
   {
+    match: (e) => e.event === 'script_blocked',
+    severity: 'CRITICAL',
+    message: 'Malicious behavior detected and blocked'
+  },
+  {
     match: (e) => e.event === 'fs_write_attempt' && isSensitivePath(e.path),
     severity: 'CRITICAL',
     message: 'Attempted to write to sensitive path'

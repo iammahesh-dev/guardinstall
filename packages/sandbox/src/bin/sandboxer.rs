@@ -1,5 +1,5 @@
 //! Main sandboxer binary - WORKING VERSION
-//! Uses seccomp-BPF to block socket() syscall (network access)
+//! Uses seccomp-BPF to KILL on socket() syscall (network access)
 //! Uses Landlock to block filesystem access to sensitive files
 //! Does NOT block execve - lets bash run scripts
 //! 
@@ -9,12 +9,8 @@ use libc::{self, SYS_execve};
 use serde_json::{json};
 use std::process;
 
-// Declare landlock module (from bin/landlock.rs)
-#[cfg(target_os = "linux")]
-mod landlock;
-
 /// BPF instructions for seccomp filter
-/// Blocks socket syscall (41) - all socket creation
+/// KILLS process on socket syscall (41) - network access
 /// Allows everything else including execve (59)
 const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
     // Load architecture (A = seccomp_data.arch)
@@ -27,9 +23,13 @@ const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
     libc::sock_filter { code: 0x15, jt: 1, jf: 0, k: 41 },
     // Not socket, allow (SECCOMP_RET_ALLOW = 0x7fff0000)
     libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x7fff0000 },
-    // Is socket, block with EPERM (SECCOMP_RET_ERRNO|EPERM = 0x00050001)
-    libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x00050001 },
+    // Is socket, KILL process (SECCOMP_RET_KILL = 0x00000000)
+    libc::sock_filter { code: 0x06, jt: 0, jf: 0, k: 0x00000000 },
 ];
+
+// Declare landlock module (from bin/landlock.rs)
+#[cfg(target_os = "linux")]
+mod landlock;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -84,6 +84,7 @@ fn main() {
             libc::waitpid(pid, &mut status, 0);
         }
 
+        // Check if process was killed (by seccomp)
         if libc::WIFSIGNALED(status) {
             let sig = libc::WTERMSIG(status);
             let event = json!({
@@ -108,9 +109,9 @@ fn main() {
     }
 }
 
-/// Apply seccomp-BPF filter to block socket() syscall only
+/// Apply seccomp-BPF filter to KILL on socket() syscall
 fn apply_seccomp() {
-    eprintln!("Applying seccomp-BPF filter (blocks socket() only)...");
+    eprintln!("Applying seccomp-BPF filter (kills on socket() syscall)...");
     
     let prog = libc::sock_fprog {
         len: BPF_INSTRUCTIONS.len() as u16,
@@ -130,7 +131,7 @@ fn apply_seccomp() {
         process::exit(1);
     }
     
-    eprintln!("Seccomp-BPF filter applied (blocks socket() syscall)");
+    eprintln!("Seccomp-BPF filter applied (kills on socket() syscall)");
 }
 
 fn get_timestamp_ns() -> u64 {

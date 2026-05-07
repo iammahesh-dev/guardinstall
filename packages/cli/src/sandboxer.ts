@@ -7,6 +7,7 @@ import { spawnSync, SpawnSyncReturns } from 'child_process';
 import * as path from 'path';
 import { SandboxEvent } from '@guardinstall/policy-engine';
 import * as os from 'os';
+import chalk from 'chalk';
 
 interface SandboxResult {
   package: string;
@@ -21,8 +22,10 @@ function getBinaryName(): string {
   const platform = os.platform();
   const arch = os.arch();
 
+  // For development, just use 'sandboxer' (built by cargo)
+  // For production/distribution, use platform-specific names
   if (platform === 'linux') {
-    return arch === 'arm64' ? 'sandboxer-linux-arm64' : 'sandboxer-linux-x64';
+    return arch === 'arm64' ? 'sandboxer-linux-arm64' : 'sandboxer';
   }
   if (platform === 'darwin') {
     return arch === 'arm64' ? 'sandboxer-macos-arm64' : 'sandboxer-macos-x64';
@@ -43,12 +46,15 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
 
   // Look for binary in multiple locations:
   // 1. Relative to CLI package (for development)
-  // 2. In node_modules/.bin (for npm global install)
-  // 3. In package's native directory (for pre-built binaries)
+  // 2. In the guardinstall project (for development)
+  // 3. In node_modules/.bin (for npm global install)
+  // 4. In package's native directory (for pre-built binaries)
   const possiblePaths = [
-    path.join(__dirname, '..', 'sandbox', 'target', 'release', binaryName),
-    path.join(__dirname, '..', '..', 'sandbox', 'target', 'release', binaryName),
-    path.join(__dirname, '..', '..', '..', 'node_modules', '@guardinstall', 'sandbox', 'native', binaryName),
+    path.join(__dirname, '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '..', '..', '.bin', binaryName),
+    path.join(__dirname, '..', '..', 'bin', binaryName),
     path.join(__dirname, '..', 'native', binaryName),
   ];
 
@@ -72,29 +78,35 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
       [scriptPath, packageName],
       {
         encoding: 'utf-8',
-        timeout: 30000, // 30 second timeout
+        timeout: 30000 // 30 second timeout
       }
     );
 
     const events: SandboxEvent[] = [];
     const stderr = result.stderr || '';
+    const stdout = result.stdout || '';
+    const output = stderr + '\n' + stdout;
 
-    // Parse JSON events from stderr (one per line)
-    stderr.split('\n').forEach((line: string) => {
+    // Parse JSON events from output (one per line)
+    // sandboxer outputs JSON to stderr: {"action":"blocked","event":"script_blocked",...}
+    output.split('\n').forEach((line: string) => {
       if (!line.trim()) return;
       try {
         const event = JSON.parse(line);
-        if (event.event) {
+        // Check for both event.event and event.action fields
+        if (event.event || event.action) {
           events.push(event);
         }
       } catch {
-        // Ignore non-JSON lines
+        // Ignore non-JSON lines (like "Applying Landlock..." etc.)
       }
     });
 
-    // Consider blocked if any event has action 'blocked' or 'error'
-    // Note: 'error' action is cast to satisfy SandboxEvent type
-    const blocked = events.some(e => e.action === 'blocked' || (e as any).action === 'error');
+    // Consider blocked if action is 'blocked'
+    const blocked = events.some(e => 
+      e.action === 'blocked' || 
+      e.event === 'script_blocked'
+    );
 
     return {
       package: packageName,

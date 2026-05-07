@@ -9,6 +9,7 @@ use landlock::{
 use std::fs;
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
+use std::io::Write;
 
 /// Apply Landlock rules to restrict filesystem access
 /// Only allows read-write to /tmp, package directory, and node_modules
@@ -23,7 +24,7 @@ pub fn apply_land_lock(package_path: &str) -> Result<(), Box<dyn std::error::Err
     // Get the best ABI supported by the kernel
     let abi = ABI::new();
     eprintln!("Landlock ABI version: {:?}", abi);
-
+    
     // Create a new ruleset
     let mut ruleset = Ruleset::new()
         .map_err(|e| format!("Failed to create ruleset: {}", e))?;
@@ -65,11 +66,9 @@ pub fn apply_land_lock(package_path: &str) -> Result<(), Box<dyn std::error::Err
 
     // Apply the ruleset to the current process
     match ruleset.restrict_self() {
-        Ok(RestrictionStatus::Restricted) => {
-            eprintln!("Landlock filesystem restrictions applied successfully");
-        }
-        Ok(RestrictionStatus::Unrestricted) => {
-            eprintln!("Landlock not enforced (already restricted or not fully supported)");
+        Ok(status) => {
+            eprintln!("Landlock restriction status: {:?}", status);
+            eprintln!("Landlock filesystem restrictions applied");
         }
         Err(e) => {
             eprintln!("Failed to apply Landlock: {}", e);
