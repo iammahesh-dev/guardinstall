@@ -11,7 +11,6 @@ use std::process;
 
 /// BPF instructions for seccomp filter
 /// KILLS process on ANY socket syscall (41) - blocks ALL socket families
-/// This is more secure than checking specific domains (AF_INET, AF_INET6, etc.)
 /// Allows everything else including execve (59)
 const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
     // Load architecture (A = seccomp_data.arch)
