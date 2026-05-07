@@ -107,8 +107,12 @@ git push origin dev    # Push only dev to remote
 # Graphify - update knowledge graph
 cd /home/mahi/app/guardinstall
 export PATH="$HOME/.local/bin:$PATH"
+# Option 1: Use ollama (requires ollama running)
 export OLLAMA_API_KEY="dummy"
 graphify extract . --backend ollama  # Build/update graph
+# Option 2: No external API needed - use existing graph
+# Graph at graphify-out/graph.json (106 nodes, 167 edges, 18 communities)
+# Just open graphify-out/graph.html in browser (no rebuild needed)
 # Output: graphify-out/graph.html (open in browser)
 ```
 
