@@ -67,9 +67,10 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
   }
 
   if (!binaryPath) {
-    // Fallback: try to find in PATH
-    binaryPath = path.join(__dirname, '..', '..', '..', '.bin', 'sandboxer') ||
-                  path.join(__dirname, '..', '..', 'bin', 'sandboxer');
+    throw new Error(
+      `guardinstall: sandboxer binary not found. ` +
+      `Run 'cd packages/sandbox && cargo build --release --bin sandboxer' first.`
+    );
   }
 
   try {
