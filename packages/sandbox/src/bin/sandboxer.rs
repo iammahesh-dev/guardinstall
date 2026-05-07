@@ -13,6 +13,7 @@ use seccompiler::{SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompConditio
 /// Platform-specific sandbox execution
 #[cfg(target_os = "linux")]
 fn run_sandboxed(script_path: &str, _package_name: &str) -> std::io::Result<std::process::Output> {
+    // Execute the script via sh
     let mut cmd = Command::new("sh");
     cmd.arg(script_path);
 
