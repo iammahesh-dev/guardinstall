@@ -25,7 +25,10 @@ export async function getInstallScripts(projectRoot: string): Promise<PackageInf
   const lockfile = readLockfile(projectRoot)
 
   for (const node of tree.inventory.values()) {
-    const scripts = node.package?.scripts ?? {}
+    const pkg = node.package
+    if (!pkg) continue
+    
+    const scripts = pkg.scripts ?? {}
     const hasInstallScript = ['preinstall', 'install', 'postinstall']
       .some(s => s in scripts)
 
