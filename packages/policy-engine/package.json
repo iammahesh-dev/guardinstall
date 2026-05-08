@@ -1,6 +1,6 @@
 {
   "name": "@guardinstall/policy-engine",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Policy engine for scoring and evaluating sandbox events",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
