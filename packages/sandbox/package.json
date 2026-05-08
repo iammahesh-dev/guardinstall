@@ -1,6 +1,6 @@
 {
   "name": "@guardinstall/sandbox",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Rust native addon for behavioral sandboxing using seccomp-BPF and Linux namespaces",
   "main": "index.js",
   "scripts": {
