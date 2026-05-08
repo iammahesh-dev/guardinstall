@@ -1,6 +1,6 @@
 {
   "name": "@guardinstall/cli",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "description": "CLI wrapper for guardinstall - intercepts and sandboxes install scripts",
   "main": "dist/index.js",
   "bin": {
