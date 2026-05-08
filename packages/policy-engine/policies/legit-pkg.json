@@ -1,0 +1,12 @@
+{
+  "package": "legit-pkg",
+  "versions": ">=1.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["example.com"],
+      "reason": "Downloads binary from example.com"
+    },
+    "exec": true
+  }
+}

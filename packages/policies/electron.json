@@ -1,0 +1,16 @@
+{
+  "package": "electron",
+  "versions": ">=25.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org", "github.com"],
+      "reason": "Downloads Electron binaries"
+    },
+    "filesystem": {
+      "writes": ["./dist", "./lib"],
+      "reason": "Extracts Electron binaries"
+    },
+    "exec": true
+  }
+}

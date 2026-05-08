@@ -1,0 +1,16 @@
+{
+  "package": "file-loader",
+  "versions": ">=6.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Webpack file loader"
+    },
+    "filesystem": {
+      "writes": ["dist/index.js"],
+      "reason": "Webpack file loader"
+    },
+    "exec": false
+  }
+}

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+packages/*/node_modules/
+
+# Build outputs
+dist/
+# packages/*/dist/ - commented out for npm publish
+packages/sandbox/target/
+packages/sandbox/*.node
+
+# Test outputs
+coverage/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+**/*.rs.bk
+Cargo.lock
+
+# pnpm
+.pnpm-debug.log*
+.pnpm-state.json
+
+AGENTS*.md
+graphify-out/

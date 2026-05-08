@@ -1,0 +1,16 @@
+{
+  "package": "node-sass",
+  "versions": ">=7.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": ["registry.npmjs.org", "github.com"],
+      "reason": "Downloads pre-built binaries"
+    },
+    "filesystem": {
+      "writes": ["./build", "./lib", "./vendor"],
+      "reason": "Compiles SASS bindings"
+    },
+    "exec": true
+  }
+}

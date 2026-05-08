@@ -1,0 +1,16 @@
+{
+  "package": "debugger",
+  "versions": ">=1.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Debugging utility"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "Debugging utility"
+    },
+    "exec": false
+  }
+}

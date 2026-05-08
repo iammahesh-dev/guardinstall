@@ -1,0 +1,16 @@
+{
+  "package": "grpc",
+  "versions": ">=1.24.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [],
+      "reason": "No network needed during install"
+    },
+    "filesystem": {
+      "writes": ["./build", "./lib", "./src/node/extension_binary"],
+      "reason": "Compiles native gRPC addon"
+    },
+    "exec": true
+  }
+}

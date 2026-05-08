@@ -1,0 +1,16 @@
+{
+  "package": "babel-core",
+  "versions": ">=7.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Babel compiler core, JS only"
+    },
+    "filesystem": {
+      "writes": ["lib/index.js"],
+      "reason": "Babel compiler core, JS only"
+    },
+    "exec": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "package": "handlebars-layouts",
+  "versions": ">=4.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Handlebars layout plugin"
+    },
+    "filesystem": {
+      "writes": ["lib/index.js"],
+      "reason": "Handlebars layout plugin"
+    },
+    "exec": false
+  }
+}

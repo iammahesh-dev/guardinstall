@@ -1,0 +1,16 @@
+{
+  "package": "babel-loader",
+  "versions": ">=9.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Webpack loader for Babel"
+    },
+    "filesystem": {
+      "writes": ["lib/index.js"],
+      "reason": "Webpack loader for Babel"
+    },
+    "exec": false
+  }
+}

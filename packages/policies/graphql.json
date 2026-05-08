@@ -1,0 +1,16 @@
+{
+  "package": "graphql",
+  "versions": ">=16.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "GraphQL query language"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "GraphQL query language"
+    },
+    "exec": false
+  }
+}

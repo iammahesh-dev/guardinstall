@@ -1,0 +1,16 @@
+{
+  "package": "del",
+  "versions": ">=6.0.0",
+  "maintainers_verified": true,
+  "expected_behavior": {
+    "network": {
+      "allowed_hosts": [""],
+      "reason": "Delete files/folders"
+    },
+    "filesystem": {
+      "writes": ["index.js"],
+      "reason": "Delete files/folders"
+    },
+    "exec": false
+  }
+}
