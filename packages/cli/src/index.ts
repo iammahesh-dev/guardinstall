@@ -13,7 +13,7 @@ const program = new Command()
 program
   .name('guardinstall')
   .description('A kernel-level behavioral sandbox for npm/pnpm/bun install scripts')
-  .version('0.1.10')
+  .version('1.0.0')
 
 program
   .command('install')
