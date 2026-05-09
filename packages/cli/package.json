@@ -4,7 +4,8 @@
   "description": "CLI wrapper for guardinstall - intercepts and sandboxes install scripts",
   "main": "dist/index.js",
   "bin": {
-    "guardinstall": "dist/index.js"
+    "guardinstall": "dist/index.js",
+    "gi": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

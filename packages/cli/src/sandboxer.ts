@@ -47,7 +47,7 @@ function getBinaryName(): string {
   // For development, just use 'sandboxer' (built by cargo)
   // For production/distribution, use platform-specific names
   if (platform === 'linux') {
-    return arch === 'arm64' ? 'sandboxer-linux-arm64' : 'sandboxer';
+    return arch === 'arm64' ? 'sandboxer-linux-arm64' : 'sandboxer-bin';
   }
   if (platform === 'darwin') {
     return arch === 'arm64' ? 'sandboxer-macos-arm64' : 'sandboxer-macos-x64';
@@ -76,12 +76,19 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
   // 3. In node_modules/.bin (for npm global install)
   // 4. In package's native directory (for pre-built binaries)
   const possiblePaths = [
+    // Development: relative to CLI dist (where we just copied it)
+    path.join(__dirname, binaryName),
+    // Development: relative to CLI package
     path.join(__dirname, '..', 'packages', 'sandbox', 'target', 'release', binaryName),
     path.join(__dirname, '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    // Development: in guardinstall project
     path.join(__dirname, '..', '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
-    path.join(__dirname, '..', '..', '..', '.bin', binaryName),
-    path.join(__dirname, '..', '..', 'bin', binaryName),
+    // npm global install: node_modules/.bin
+    path.join(__dirname, '..', '.bin', binaryName),
+    // npm global install: package's native directory
     path.join(__dirname, '..', 'native', binaryName),
+    // Fallback: system PATH
+    binaryName,
   ];
 
   let binaryPath: string | null = null;
@@ -93,6 +100,10 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
   }
 
   if (!binaryPath) {
+    // Debug: print what paths were checked
+    console.error('DEBUG: Checked paths:');
+    possiblePaths.forEach(p => console.error(`  ${p} -> ${require('fs').existsSync(p) ? 'EXISTS' : 'NOT FOUND'}`));
+    console.error(`DEBUG: __dirname = ${__dirname}`);
     throw new Error(
       `guardinstall: sandboxer binary not found. ` +
       `Run 'cd packages/sandbox && cargo build --release --bin sandboxer' first.`
