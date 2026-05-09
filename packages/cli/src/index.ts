@@ -7,13 +7,16 @@ import { evaluateEvents, Verdict } from '@guardinstall/policy-engine'
 import { printReport } from './reporter'
 import { promptUser, promptCI } from './prompt'
 import { runPackageManager } from './installer'
+import { readFileSync } from 'fs'
+
+const version = JSON.parse(readFileSync('./package.json', 'utf-8')).version
 
 const program = new Command()
 
 program
   .name('guardinstall')
   .description('A kernel-level behavioral sandbox for npm/pnpm/bun install scripts')
-  .version('1.0.0')
+  .version(version)
 
 program
   .command('install')
