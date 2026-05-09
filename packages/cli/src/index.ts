@@ -8,8 +8,9 @@ import { printReport } from './reporter'
 import { promptUser, promptCI } from './prompt'
 import { runPackageManager } from './installer'
 import { readFileSync } from 'fs'
+import path from 'path'
 
-const version = JSON.parse(readFileSync('./package.json', 'utf-8')).version
+const version = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')).version
 
 const program = new Command()
 
