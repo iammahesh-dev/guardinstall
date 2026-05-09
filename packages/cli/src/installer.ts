@@ -3,6 +3,24 @@ import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 
+export function detectPackageManager(cwd: string): string {
+  const lockFiles = [
+    { file: 'pnpm-lock.yaml', pm: 'pnpm' },
+    { file: 'pnpm-workspace.yaml', pm: 'pnpm' },
+    { file: 'yarn.lock', pm: 'yarn' },
+    { file: 'bun.lockb', pm: 'bun' },
+    { file: 'package-lock.json', pm: 'npm' },
+  ]
+
+  for (const { file, pm } of lockFiles) {
+    if (fs.existsSync(path.join(cwd, file))) {
+      return pm
+    }
+  }
+
+  return 'npm'
+}
+
 export async function runPackageManager(
   pm: string,
   args: string[]
@@ -80,8 +98,36 @@ async function runNpmAddWithFallback(args: string[]): Promise<{ success: boolean
 
     console.log(chalk.gray(`Step 2: Running npm install --ignore-scripts...\n`))
     
-    // Run npm install with --ignore-scripts
-    const result = execSync('npm install --ignore-scripts --no-audit --no-fund', {
+    // Detect actual package manager from project
+    const detectedPM = detectPackageManager(process.cwd())
+    console.log(chalk.gray(`Detected package manager: ${detectedPM}\n`))
+    
+    // Build install command based on detected PM
+    let installCmd: string
+    let installArgs: string[]
+    
+    switch (detectedPM) {
+      case 'pnpm':
+        installCmd = 'pnpm'
+        installArgs = ['install', '--ignore-scripts', '--no-audit', '--no-fund']
+        break
+      case 'yarn':
+        installCmd = 'yarn'
+        installArgs = ['install', '--ignore-scripts', '--silent']
+        break
+      case 'bun':
+        installCmd = 'bun'
+        installArgs = ['install', '--ignore-scripts']
+        break
+      default:
+        installCmd = 'npm'
+        installArgs = ['install', '--ignore-scripts', '--no-audit', '--no-fund']
+    }
+    
+    console.log(chalk.gray(`Step 2: Running ${installCmd} install...\n`))
+    
+    // Run install with detected package manager
+    const result = execSync(`${installCmd} ${installArgs.join(' ')}`, {
       stdio: 'inherit',
       encoding: 'utf-8'
     })
