@@ -20,15 +20,15 @@ Every time you run `npm install`, **postinstall scripts execute with your full u
 ## Installation
 
 ```bash
-npm install -g @guardinstall/cli@0.1.4
+npm install -g @guardinstall/cli@1.0.1
 # or
-pnpm add -g @guardinstall/cli@0.1.4
+pnpm add -g @guardinstall/cli@1.0.1
 ```
 
 **Verify installation:**
 ```bash
 guardinstall --version
-# Should show 0.1.4
+# Should show 1.0.1
 ```
 
 ## Usage
@@ -47,6 +47,7 @@ guardinstall add express
 # Output: ✓ No install scripts found in new packages
 ```
 
+```bash
 # Use with pnpm
 guardinstall --pm pnpm add lodash
 

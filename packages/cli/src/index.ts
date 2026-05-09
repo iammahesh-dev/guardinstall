@@ -50,18 +50,9 @@ program
       // Step 3: Run install scripts through sandbox
       if (packages.length > 0) {
         const results = await runSandbox(packages)
-        console.log(chalk.gray(`\nDEBUG: Got ${results.length} results`))
-        results.forEach(r => {
-          console.log(chalk.gray(`  ${r.package}: blocked=${r.blocked}, events=${r.events.length}`))
-        })
         const verdicts: Verdict[] = results
           .filter(r => r.events.length > 0)
           .map(r => evaluateEvents(r.events, r.package))
-        
-        console.log(chalk.gray(`DEBUG: ${verdicts.length} verdicts`))
-        verdicts.forEach(v => {
-          console.log(chalk.gray(`  ${v.package}: severity=${v.severity}, findings=${v.findings.length}`))
-        })
 
         printReport(results, verdicts)
 

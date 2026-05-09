@@ -1,5 +1,5 @@
 pub mod seccomp;
-pub mod landlock;
+pub mod landlock_bin;
 pub mod events;
 
 use napi::{Error, Status};
@@ -41,7 +41,7 @@ pub fn sandbox_linux(script_path: &str) -> napi::Result<()> {
     let _ = events::emit_event(&event);
 
     // Phase 2: Apply Landlock filesystem restrictions
-    if let Err(e) = landlock::apply_land_lock(script_path) {
+    if let Err(e) = landlock_bin::apply_land_lock(script_path) {
         let _ = events::emit_event(&events::SandboxEvent {
             event_type: "landlock_failed".to_string(),
             package: "unknown".to_string(),

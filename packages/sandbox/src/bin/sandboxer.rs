@@ -31,12 +31,6 @@ const BPF_INSTRUCTIONS: [libc::sock_filter; 6] = [
 #[cfg(target_os = "linux")]
 mod landlock;
 
-#[cfg(target_os = "macos")]
-mod macos;
-
-#[cfg(target_os = "windows")]
-mod windows;
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
