@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { getInstallScripts } from './resolver'
+import { getInstallScripts, scanNodeModulesForScripts, listPackageNames } from './resolver'
 import { runSandbox, SandboxResult } from './orchestrator'
 import { evaluateEvents, Verdict } from '@guardinstall/policy-engine'
 import { printReport } from './reporter'
 import { promptUser, promptCI } from './prompt'
-import { runPackageManager } from './installer'
+import { runPackageManager, getGlobalNodeModulesPath } from './installer'
 import { readFileSync } from 'fs'
 import path from 'path'
 
@@ -84,39 +84,74 @@ program
   .command('add <packages...>')
   .description('Add packages with sandbox protection')
   .option('--pm <package-manager>', 'package manager to use (npm, pnpm, bun)', 'npm')
+  .option('-g, --global', 'install globally', false)
   .action(async (packages, options) => {
     console.log(chalk.blue.bold('\n🔒 guardinstall — Adding packages with protection\n'))
     console.log(chalk.gray(`Packages: ${packages.join(', ')}`))
-    console.log(chalk.gray(`Using: ${options.pm}\n`))
+    console.log(chalk.gray(`Using: ${options.pm}${options.global ? ' (global)' : ''}\n`))
 
-    // Step 1: Install without running scripts (--ignore-scripts)
-    const installResult = await runPackageManager(options.pm, ['add', '--ignore-scripts', ...packages])
-    if (!installResult.success) {
-      console.error(chalk.red('Add failed'))
-      process.exit(1)
-    }
+    if (options.global) {
+      const globalNodeModules = getGlobalNodeModulesPath(options.pm)
+      console.log(chalk.gray(`Global path: ${globalNodeModules}\n`))
 
-    // Step 2: Find new packages with install scripts
-    const newPackages = (await getInstallScripts(process.cwd())).filter(p => p.isNew)
-    if (newPackages.length > 0) {
-      console.log(chalk.blue(`\n🔍 Sandboxing ${newPackages.length} new package(s)...\n`))
+      const before = listPackageNames(globalNodeModules)
 
-      // Step 3: Run install scripts through sandbox
-      const results = await runSandbox(newPackages)
-      const verdicts: Verdict[] = results
-        .filter(r => r.events.length > 0)
-        .map(r => evaluateEvents(r.events, r.package))
+      const installResult = await runPackageManager(options.pm, ['add', '-g', '--ignore-scripts', ...packages])
+      if (!installResult.success) {
+        console.error(chalk.red('Global add failed'))
+        process.exit(1)
+      }
 
-      printReport(results, verdicts)
+      const after = scanNodeModulesForScripts(globalNodeModules)
+      const newPackages = after.filter(p => !before.has(p.name))
 
-      // Step 4: Check for critical issues
-      const blocked = verdicts.filter(v => v.severity === 'CRITICAL')
-      if (blocked.length > 0) {
-        console.log(chalk.red('\n❌ Critical security issues found!'))
-        await promptUser(blocked[0])
+      if (newPackages.length > 0) {
+        console.log(chalk.blue(`\n🔍 Sandboxing ${newPackages.length} new global package(s)...\n`))
+        const results = await runSandbox(newPackages)
+        const verdicts: Verdict[] = results
+          .filter(r => r.events.length > 0)
+          .map(r => evaluateEvents(r.events, r.package))
+
+        printReport(results, verdicts)
+
+        const blocked = verdicts.filter(v => v.severity === 'CRITICAL')
+        if (blocked.length > 0) {
+          console.log(chalk.red('\n❌ Critical security issues found!'))
+          await promptUser(blocked[0])
+        }
+      } else {
+        console.log(chalk.green('\n✓ No install scripts found in new global packages'))
       }
     } else {
-      console.log(chalk.green('\n✓ No install scripts found in new packages'))
+      // Step 1: Install without running scripts (--ignore-scripts)
+      const installResult = await runPackageManager(options.pm, ['add', '--ignore-scripts', ...packages])
+      if (!installResult.success) {
+        console.error(chalk.red('Add failed'))
+        process.exit(1)
+      }
+
+      // Step 2: Find new packages with install scripts
+      const newPackages = (await getInstallScripts(process.cwd())).filter(p => p.isNew)
+      if (newPackages.length > 0) {
+        console.log(chalk.blue(`\n🔍 Sandboxing ${newPackages.length} new package(s)...\n`))
+
+        // Step 3: Run install scripts through sandbox
+        const results = await runSandbox(newPackages)
+        const verdicts: Verdict[] = results
+          .filter(r => r.events.length > 0)
+          .map(r => evaluateEvents(r.events, r.package))
+
+        printReport(results, verdicts)
+
+        // Step 4: Check for critical issues
+        const blocked = verdicts.filter(v => v.severity === 'CRITICAL')
+        if (blocked.length > 0) {
+          console.log(chalk.red('\n❌ Critical security issues found!'))
+          await promptUser(blocked[0])
+        }
+      } else {
+        console.log(chalk.green('\n✓ No install scripts found in new packages'))
+      }
     }
   })
 
