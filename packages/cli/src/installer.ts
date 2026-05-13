@@ -17,7 +17,14 @@ export function getGlobalNodeModulesPath(pm: string): string {
     if (result && fs.existsSync(result)) return result
   } catch {}
 
-  const fallbacks = [
+  const isWindows = os.platform() === 'win32'
+
+  const fallbacks = isWindows ? [
+    path.join(process.env.APPDATA || '', 'npm', 'node_modules'),
+    path.join(process.env.APPDATA || '', 'npm', 'node_modules_global', 'lib', 'node_modules'),
+    path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'node_modules'),
+    path.join(os.homedir(), '.npm-global', 'lib', 'node_modules'),
+  ] : [
     '/usr/lib/node_modules',
     '/usr/local/lib/node_modules',
     path.join(os.homedir(), '.npm-global', 'lib', 'node_modules'),

@@ -6,6 +6,8 @@ import * as os from 'os'
 import * as fs from 'fs'
 import * as path from 'path'
 
+const isWindows = os.platform() === 'win32'
+
 export interface SandboxResult {
   package: string;
   blocked: boolean;
@@ -35,10 +37,31 @@ export async function runSandbox(
   return results
 }
 
-async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
+function writeScriptFile(pkg: PackageInfo): { filePath: string; cleanup: () => void } {
+  const scriptCommand = pkg.scripts?.postinstall || pkg.scripts?.install || pkg.scripts?.preinstall
+
+  if (isWindows) {
+    const tmpFile = path.join(os.tmpdir(), `guardinstall-${pkg.name}-${Date.now()}.bat`)
+    const scriptContent = `@echo off\ncd /d "${pkg.path}"\n${scriptCommand}\n`
+    fs.writeFileSync(tmpFile, scriptContent)
+    return {
+      filePath: tmpFile,
+      cleanup: () => { try { fs.unlinkSync(tmpFile) } catch {} }
+    }
+  }
+
+  const tmpFile = path.join(os.tmpdir(), `guardinstall-${pkg.name}-${Date.now()}.sh`)
+  const scriptContent = `#!/bin/sh\ncd "${pkg.path}"\n${scriptCommand}\n`
+  fs.writeFileSync(tmpFile, scriptContent, { mode: 0o700 })
+  return {
+    filePath: tmpFile,
+    cleanup: () => { try { fs.unlinkSync(tmpFile) } catch {} }
+  }
+}
+
+export async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
   console.log(chalk.gray(`  Sandboxing ${pkg.name}@${pkg.version}...`))
 
-  // Get the actual script command from package.json
   const scriptCommand = pkg.scripts?.postinstall || pkg.scripts?.install || pkg.scripts?.preinstall
 
   if (!scriptCommand) {
@@ -49,15 +72,10 @@ async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
     }
   }
 
-  // Write the script command to a temp shell file
-  const tmpFile = path.join(os.tmpdir(), `guardinstall-${pkg.name}-${Date.now()}.sh`)
-  const scriptContent = `#!/bin/sh\ncd "${pkg.path}"\n${scriptCommand}\n`
+  const { filePath, cleanup } = writeScriptFile(pkg)
 
   try {
-    fs.writeFileSync(tmpFile, scriptContent, { mode: 0o700 })
-
-    // Run script in sandboxed environment using Rust binary
-    const result = runSandboxed(tmpFile, pkg.name)
+    const result = runSandboxed(filePath, pkg.name)
 
     return {
       package: pkg.name,
@@ -65,11 +83,6 @@ async function sandboxPackage(pkg: PackageInfo): Promise<SandboxResult> {
       events: result.events,
     }
   } finally {
-    // Clean up temp file
-    try {
-      fs.unlinkSync(tmpFile)
-    } catch {
-      // Ignore cleanup errors
-    }
+    cleanup()
   }
 }

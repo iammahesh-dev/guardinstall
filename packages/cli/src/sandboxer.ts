@@ -89,6 +89,8 @@ export function runSandboxed(scriptPath: string, packageName: string = 'unknown'
     path.join(__dirname, '..', 'native', binaryName),
     // Fallback: system PATH
     binaryName,
+    // Default cargo build output
+    ...(os.platform() === 'win32' ? ['sandboxer.exe'] : ['sandboxer']),
   ];
 
   let binaryPath: string | null = null;

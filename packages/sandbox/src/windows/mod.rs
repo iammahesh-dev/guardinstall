@@ -1,11 +1,13 @@
-//! Windows sandbox - Job Objects implementation
-//! Real implementation requires winapi crate + WFP
+pub mod job_objects;
 
-use napi::Error;
+use napi::{Error, Status};
 
 pub fn sandbox_windows(script_path: &str) -> napi::Result<()> {
-    // Use Job Objects for process isolation
-    job_objects::sandbox_windows(script_path)
+    job_objects::run_script_in_sandbox(script_path).map_err(|e| {
+        Error::new(Status::GenericFailure, e)
+    })?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -13,8 +15,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_windows_placeholder() {
-        // This will fail on non-Windows, which is expected
-        let _ = sandbox_windows("/test/script.bat");
+    fn test_sandbox_nonexistent() {
+        let result = sandbox_windows("C:\\nonexistent\\script.bat");
+        assert!(result.is_err());
     }
 }
