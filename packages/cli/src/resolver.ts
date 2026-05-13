@@ -55,57 +55,84 @@ export async function getInstallScripts(projectRoot: string): Promise<PackageInf
 
 // Fallback: manually scan node_modules for package.json files
 function getInstallScriptsFromNodeModules(projectRoot: string): PackageInfo[] {
-  const packagesWithScripts: PackageInfo[] = []
+  const nodeModulesPath = path.join(projectRoot, 'node_modules')
   const lockfile = readLockfile(projectRoot)
-  
-  try {
-    const nodeModulesPath = path.join(projectRoot, 'node_modules')
-    if (!fs.existsSync(nodeModulesPath)) return packagesWithScripts
-    
-    const scanDir = (dir: string, depth: number = 0) => {
-      if (depth > 2) return // Limit recursion depth
-      
-      try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true })
-        
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            if (entry.name.startsWith('@')) {
-              // Scoped package directory
-              scanDir(path.join(dir, entry.name), depth + 1)
-            } else if (depth === 0 || depth === 1) {
-              // Check package.json in this directory
-              const pkgPath = path.join(dir, entry.name, 'package.json')
-              if (fs.existsSync(pkgPath)) {
-                try {
-                  const pkgJson = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
-                  if (pkgJson.scripts && ('preinstall' in pkgJson.scripts || 'install' in pkgJson.scripts || 'postinstall' in pkgJson.scripts)) {
-                    packagesWithScripts.push({
-                      name: pkgJson.name || entry.name,
-                      version: pkgJson.version || 'unknown',
-                      scripts: pick(pkgJson.scripts, ['preinstall', 'install', 'postinstall']) as Record<string, string> | undefined,
-                      path: path.join(dir, entry.name),
-                      isNew: !isInLockfile(pkgJson.name || entry.name, pkgJson.version || 'unknown', lockfile)
-                    })
-                  }
-                } catch (e) {
-                  // Ignore parse errors
-                }
-              }
+  const packages = scanNodeModulesForScripts(nodeModulesPath)
+
+  for (const pkg of packages) {
+    pkg.isNew = !isInLockfile(pkg.name, pkg.version, lockfile)
+  }
+
+  return packages
+}
+
+export function scanNodeModulesForScripts(nodeModulesPath: string): PackageInfo[] {
+  const packagesWithScripts: PackageInfo[] = []
+  if (!fs.existsSync(nodeModulesPath)) return packagesWithScripts
+
+  const scanDir = (dir: string, depth: number = 0) => {
+    if (depth > 2) return
+
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        if (entry.name.startsWith('@')) {
+          scanDir(path.join(dir, entry.name), depth + 1)
+        } else if (depth === 0 || depth === 1) {
+          const pkgPath = path.join(dir, entry.name, 'package.json')
+          if (!fs.existsSync(pkgPath)) continue
+          try {
+            const pkgJson = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+            const scripts = pkgJson.scripts || {}
+            if (scripts.preinstall || scripts.install || scripts.postinstall) {
+              packagesWithScripts.push({
+                name: pkgJson.name || entry.name,
+                version: pkgJson.version || 'unknown',
+                scripts: pick(scripts, ['preinstall', 'install', 'postinstall']) as Record<string, string> | undefined,
+                path: path.join(dir, entry.name),
+                isNew: true,
+              })
             }
+          } catch {
+            // Ignore parse errors
           }
         }
-      } catch (e) {
-        // Ignore permission errors
+      }
+    } catch {
+      // Ignore permission errors
+    }
+  }
+
+  scanDir(nodeModulesPath)
+  return packagesWithScripts
+}
+
+export function listPackageNames(nodeModulesPath: string): Set<string> {
+  const names = new Set<string>()
+  if (!fs.existsSync(nodeModulesPath)) return names
+
+  try {
+    const entries = fs.readdirSync(nodeModulesPath, { withFileTypes: true })
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      if (entry.name.startsWith('@')) {
+        try {
+          const scoped = fs.readdirSync(path.join(nodeModulesPath, entry.name))
+          for (const s of scoped) names.add(`${entry.name}/${s}`)
+        } catch {
+          // Ignore permission errors
+        }
+      } else {
+        names.add(entry.name)
       }
     }
-    
-    scanDir(nodeModulesPath)
-  } catch (e) {
-    // Ignore errors
+  } catch {
+    // Ignore permission errors
   }
-  
-  return packagesWithScripts
+
+  return names
 }
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
