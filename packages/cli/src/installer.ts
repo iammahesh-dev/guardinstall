@@ -7,23 +7,39 @@ import os from 'os'
 function resolveCommandPath(command: string): string {
   if (path.isAbsolute(command) && fs.existsSync(command)) return command
 
-  const nodeDir = path.dirname(process.execPath)
-  const candidates: string[] = [
-    path.join(nodeDir, command),
-    path.join(nodeDir, `${command}.cmd`),
-    path.join(nodeDir, `${command}.exe`),
-  ]
+  const isWin = os.platform() === 'win32'
 
-  for (const candidate of candidates) {
+  // 1. Check alongside the Node.js binary (covers nvm, nvm-windows, Volta, asdf)
+  const nodeDir = path.dirname(process.execPath)
+  const exts = isWin ? ['', '.cmd', '.exe', '.ps1'] : ['']
+  for (const ext of exts) {
+    const candidate = path.join(nodeDir, `${command}${ext}`)
     if (fs.existsSync(candidate)) return candidate
   }
 
+  // 2. Search system PATH using platform-native resolver
   try {
-    const whereResult = execFileSync('where.exe', [command], { encoding: 'utf-8', timeout: 5000 }).trim()
-    const firstMatch = whereResult.split('\n')[0]?.trim()
+    const resolver = isWin ? 'where' : 'which'
+    const result = execFileSync(resolver, [command], { encoding: 'utf-8', timeout: 5000 }).trim()
+    const firstMatch = result.split('\n')[0]?.trim()
     if (firstMatch && fs.existsSync(firstMatch)) return firstMatch
   } catch {}
 
+  // 3. Manual PATH search as double-fallback
+  const pathEnv = process.env.PATH || ''
+  for (const dir of pathEnv.split(path.delimiter)) {
+    if (!dir) continue
+    try {
+      for (const ext of exts) {
+        const candidate = path.join(dir, `${command}${ext}`)
+        if (fs.existsSync(candidate)) return candidate
+      }
+    } catch {
+      // Ignore inaccessible directories in PATH
+    }
+  }
+
+  // 4. Last resort: let OS try to resolve it at spawn time
   return command
 }
 
