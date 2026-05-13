@@ -1,8 +1,31 @@
-import { spawn, execSync } from 'child_process'
+import { spawn, execSync, execFileSync } from 'child_process'
 import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+
+function resolveCommandPath(command: string): string {
+  if (path.isAbsolute(command) && fs.existsSync(command)) return command
+
+  const nodeDir = path.dirname(process.execPath)
+  const candidates: string[] = [
+    path.join(nodeDir, command),
+    path.join(nodeDir, `${command}.cmd`),
+    path.join(nodeDir, `${command}.exe`),
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  try {
+    const whereResult = execFileSync('where.exe', [command], { encoding: 'utf-8', timeout: 5000 }).trim()
+    const firstMatch = whereResult.split('\n')[0]?.trim()
+    if (firstMatch && fs.existsSync(firstMatch)) return firstMatch
+  } catch {}
+
+  return command
+}
 
 export function getGlobalNodeModulesPath(pm: string): string {
   const pmMap: Record<string, string> = {
@@ -13,7 +36,8 @@ export function getGlobalNodeModulesPath(pm: string): string {
   const command = pmMap[pm] || 'npm'
 
   try {
-    const result = execSync(`${command} root -g`, { encoding: 'utf-8' }).trim()
+    const resolved = resolveCommandPath(command)
+    const result = execFileSync(resolved, ['root', '-g'], { encoding: 'utf-8' }).trim()
     if (result && fs.existsSync(result)) return result
   } catch {}
 
@@ -84,8 +108,10 @@ export async function runPackageManager(
   const displayArgs = args.filter(a => a !== '--ignore-scripts')
   console.log(chalk.gray(`\n📦 Running: ${command} ${displayArgs.join(' ')} (with --ignore-scripts)\n`))
 
+  const resolvedCommand = resolveCommandPath(command)
+
   return new Promise((resolve) => {
-    const proc = spawn(command, args, {
+    const proc = spawn(resolvedCommand, args, {
       stdio: 'inherit',
       shell: false
     })
@@ -163,7 +189,8 @@ async function runNpmAddWithFallback(args: string[]): Promise<{ success: boolean
     console.log(chalk.gray(`Step 2: Running ${installCmd} install...\n`))
     
     // Run install with detected package manager
-    const result = execSync(`${installCmd} ${installArgs.join(' ')}`, {
+    const resolvedInstallCmd = resolveCommandPath(installCmd)
+    const result = execFileSync(resolvedInstallCmd, installArgs, {
       stdio: 'inherit',
       encoding: 'utf-8'
     })
