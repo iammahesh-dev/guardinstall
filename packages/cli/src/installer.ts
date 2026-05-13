@@ -2,6 +2,52 @@ import { spawn, execSync } from 'child_process'
 import chalk from 'chalk'
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
+
+export function getGlobalNodeModulesPath(pm: string): string {
+  const pmMap: Record<string, string> = {
+    npm: 'npm',
+    pnpm: 'pnpm',
+    bun: 'bun',
+  }
+  const command = pmMap[pm] || 'npm'
+
+  try {
+    const result = execSync(`${command} root -g`, { encoding: 'utf-8' }).trim()
+    if (result && fs.existsSync(result)) return result
+  } catch {}
+
+  const fallbacks = [
+    '/usr/lib/node_modules',
+    '/usr/local/lib/node_modules',
+    path.join(os.homedir(), '.npm-global', 'lib', 'node_modules'),
+    path.join(os.homedir(), '.node_modules_global', 'lib', 'node_modules'),
+  ]
+
+  for (const fp of fallbacks) {
+    if (fs.existsSync(fp)) return fp
+  }
+
+  throw new Error(`Could not determine global node_modules path for ${command}`)
+}
+
+export function detectPackageManager(cwd: string): string {
+  const lockFiles = [
+    { file: 'pnpm-lock.yaml', pm: 'pnpm' },
+    { file: 'pnpm-workspace.yaml', pm: 'pnpm' },
+    { file: 'yarn.lock', pm: 'yarn' },
+    { file: 'bun.lockb', pm: 'bun' },
+    { file: 'package-lock.json', pm: 'npm' },
+  ]
+
+  for (const { file, pm } of lockFiles) {
+    if (fs.existsSync(path.join(cwd, file))) {
+      return pm
+    }
+  }
+
+  return 'npm'
+}
 
 export function detectPackageManager(cwd: string): string {
   const lockFiles = [
@@ -32,9 +78,10 @@ export async function runPackageManager(
   }
 
   const command = pmMap[pm] || 'npm'
+  const isGlobal = args.some(a => a === '-g' || a === '--global')
 
-  // For add, we need to manually add to package.json and run npm install
-  if (args.includes('add') && command === 'npm') {
+  // For local npm add, use fallback to work around arborist bug
+  if (args.includes('add') && command === 'npm' && !isGlobal) {
     return runNpmAddWithFallback(args)
   }
 
