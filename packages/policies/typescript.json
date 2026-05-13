@@ -1,5 +1,5 @@
 {
-  "package": "${pkg}",
+  "package": "typescript",
   "versions": ">=1.0.0",
   "maintainers_verified": true,
   "expected_behavior": {

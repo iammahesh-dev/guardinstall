@@ -1,0 +1,10 @@
+{
+  "allowlist": [],
+  "denylist": [],
+  "concurrency": 4,
+  "timeout": 30000,
+  "ci": {
+    "fail_on": "critical",
+    "mode": "standard"
+  }
+}

@@ -164,4 +164,12 @@ program
     await auditExisting(options.json)
   })
 
+program
+  .command('check')
+  .description('Check system compatibility (kernel, Landlock, seccomp, etc.)')
+  .action(async () => {
+    const { runCheck } = await import('./check')
+    await runCheck()
+  })
+
 program.parse()

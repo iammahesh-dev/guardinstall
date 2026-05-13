@@ -8,7 +8,6 @@ import * as path from 'path';
 import { SandboxEvent } from '@guardinstall/policy-engine';
 import * as os from 'os';
 import * as fs from 'fs';
-import chalk from 'chalk';
 
 interface PolicyProfile {
   package: string;
@@ -22,13 +21,17 @@ interface PolicyProfile {
 }
 
 function loadPolicy(packageName: string): PolicyProfile | null {
-  const policyPath = path.join(__dirname, '../../policy-engine/policies', `${packageName}.json`);
-  if (!fs.existsSync(policyPath)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(policyPath, 'utf-8'));
-  } catch {
-    return null;
+  const candidates = [
+    path.join(__dirname, '../../policies', `${packageName}.json`),
+    path.join(__dirname, '../../policy-engine/policies', `${packageName}.json`),
+  ]
+  for (const policyPath of candidates) {
+    if (!fs.existsSync(policyPath)) continue
+    try {
+      return JSON.parse(fs.readFileSync(policyPath, 'utf-8'))
+    } catch {}
   }
+  return null
 }
 
 interface SandboxResult {
@@ -49,53 +52,36 @@ function getBinaryName(): string {
   return 'sandboxer';
 }
 
+export function findSandboxerBinary(): string | null {
+  const binaryName = getBinaryName();
+  const possiblePaths = [
+    path.join(__dirname, binaryName),
+    path.join(__dirname, '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
+    path.join(__dirname, '..', '.bin', binaryName),
+    path.join(__dirname, '..', 'native', binaryName),
+    binaryName,
+    ...(os.platform() === 'win32' ? ['sandboxer.exe'] : ['sandboxer']),
+  ];
+
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p
+  }
+  return null
+}
+
 /**
  * Run package install script in sandboxed environment
  * Uses standalone Rust binary (sandboxer)
  */
 export function runSandboxed(scriptPath: string, packageName: string = 'unknown'): SandboxResult {
-  const binaryName = getBinaryName();
-  
-  // Check if package has verified policy profile
   const policy = loadPolicy(packageName);
   const isVerified = policy && policy.maintainers_verified;
 
-  // Look for binary in multiple locations:
-  // 1. Relative to CLI package (for development)
-  // 2. In the guardinstall project (for development)
-  // 3. In node_modules/.bin (for npm global install)
-  // 4. In package's native directory (for pre-built binaries)
-  const possiblePaths = [
-    // Development: relative to CLI dist (where we just copied it)
-    path.join(__dirname, binaryName),
-    // Development: relative to CLI package
-    path.join(__dirname, '..', 'packages', 'sandbox', 'target', 'release', binaryName),
-    path.join(__dirname, '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
-    // Development: in guardinstall project
-    path.join(__dirname, '..', '..', '..', 'packages', 'sandbox', 'target', 'release', binaryName),
-    // npm global install: node_modules/.bin
-    path.join(__dirname, '..', '.bin', binaryName),
-    // npm global install: package's native directory
-    path.join(__dirname, '..', 'native', binaryName),
-    // Fallback: system PATH
-    binaryName,
-    // Default cargo build output
-    ...(os.platform() === 'win32' ? ['sandboxer.exe'] : ['sandboxer']),
-  ];
-
-  let binaryPath: string | null = null;
-  for (const p of possiblePaths) {
-    if (require('fs').existsSync(p)) {
-      binaryPath = p;
-      break;
-    }
-  }
+  const binaryPath = findSandboxerBinary()
 
   if (!binaryPath) {
-    // Debug: print what paths were checked
-    console.error('DEBUG: Checked paths:');
-    possiblePaths.forEach(p => console.error(`  ${p} -> ${require('fs').existsSync(p) ? 'EXISTS' : 'NOT FOUND'}`));
-    console.error(`DEBUG: __dirname = ${__dirname}`);
     throw new Error(
       `guardinstall: sandboxer binary not found. ` +
       `Run 'cd packages/sandbox && cargo build --release --bin sandboxer' first.`
