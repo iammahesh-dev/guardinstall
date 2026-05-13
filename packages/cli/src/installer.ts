@@ -4,22 +4,33 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 
+const isWindows = os.platform() === 'win32'
+
+function runSync(cmd: string, args: string[], opts?: { stdio?: any }): string {
+  if (isWindows) {
+    const quote = (s: string) => /[\s"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s
+    const cmdLine = `"${quote(cmd)}" ${args.map(quote).join(' ')}`
+    return execSync(cmdLine, { shell: 'cmd.exe', windowsHide: true, encoding: 'utf-8' })
+  }
+  return execFileSync(cmd, args, { ...opts, encoding: 'utf-8' })
+}
+
 function resolveCommandPath(command: string): string {
   if (path.isAbsolute(command) && fs.existsSync(command)) return command
 
-  const isWin = os.platform() === 'win32'
-
-  // 1. Check alongside the Node.js binary (covers nvm, nvm-windows, Volta, asdf)
   const nodeDir = path.dirname(process.execPath)
-  const exts = isWin ? ['', '.cmd', '.exe', '.ps1'] : ['']
+  const exts = isWindows ? ['.cmd', '.exe', ''] : ['']
   for (const ext of exts) {
     const candidate = path.join(nodeDir, `${command}${ext}`)
-    if (fs.existsSync(candidate)) return candidate
+    if (fs.existsSync(candidate)) {
+      const stat = fs.statSync(candidate)
+      if (stat.isFile()) return candidate
+    }
   }
 
   // 2. Search system PATH using platform-native resolver
   try {
-    const resolver = isWin ? 'where' : 'which'
+    const resolver = isWindows ? 'where' : 'which'
     const result = execFileSync(resolver, [command], { encoding: 'utf-8', timeout: 5000 }).trim()
     const firstMatch = result.split('\n')[0]?.trim()
     if (firstMatch && fs.existsSync(firstMatch)) return firstMatch
@@ -53,11 +64,9 @@ export function getGlobalNodeModulesPath(pm: string): string {
 
   try {
     const resolved = resolveCommandPath(command)
-    const result = execFileSync(resolved, ['root', '-g'], { encoding: 'utf-8' }).trim()
+    const result = runSync(resolved, ['root', '-g']).trim()
     if (result && fs.existsSync(result)) return result
   } catch {}
-
-  const isWindows = os.platform() === 'win32'
 
   const fallbacks = isWindows ? [
     path.join(process.env.APPDATA || '', 'npm', 'node_modules'),
@@ -127,10 +136,10 @@ export async function runPackageManager(
   const resolvedCommand = resolveCommandPath(command)
 
   return new Promise((resolve) => {
-    const proc = spawn(resolvedCommand, args, {
-      stdio: 'inherit',
-      shell: false
-    })
+    const isWin = process.platform === 'win32'
+    const proc = isWin
+      ? spawn(`"${resolvedCommand}" ${args.join(' ')}`, [], { stdio: 'inherit', shell: true, windowsHide: true })
+      : spawn(resolvedCommand, args, { stdio: 'inherit', shell: false })
 
     let output = ''
     proc.stdout?.on('data', (d: Buffer) => { output += d.toString() })
@@ -206,9 +215,8 @@ async function runNpmAddWithFallback(args: string[]): Promise<{ success: boolean
     
     // Run install with detected package manager
     const resolvedInstallCmd = resolveCommandPath(installCmd)
-    const result = execFileSync(resolvedInstallCmd, installArgs, {
+    const result = runSync(resolvedInstallCmd, installArgs, {
       stdio: 'inherit',
-      encoding: 'utf-8'
     })
 
     return { success: true, output: result || '' }

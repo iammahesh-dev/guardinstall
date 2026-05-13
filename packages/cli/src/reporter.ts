@@ -9,6 +9,7 @@ export function printReport(results: SandboxResult[], verdicts: Verdict[]): void
 
   const blocked = verdicts.filter(v => v.severity === 'CRITICAL' || v.severity === 'HIGH')
   const warned = verdicts.filter(v => v.severity === 'WARN')
+  const passed = verdicts.filter(v => v.severity === 'INFO')
   const clean = results.filter(r => r.events.length === 0)
 
   if (blocked.length > 0) {
@@ -31,10 +32,17 @@ export function printReport(results: SandboxResult[], verdicts: Verdict[]): void
     })
   }
 
+  if (passed.length > 0) {
+    console.log(chalk.green.bold(`\n✓ PASSED (${passed.length} packages - no malicious behavior):\n`))
+    passed.forEach((v: Verdict) => {
+      console.log(chalk.green(`  ✓ ${v.package}`))
+    })
+  }
+
   if (clean.length > 0) {
-    console.log(chalk.green.bold(`\n✓ CLEAN (${clean.length} packages):\n`))
+    console.log(chalk.gray.bold(`\nℹ  NO SCRIPTS (${clean.length} packages):\n`))
     clean.forEach((r: SandboxResult) => {
-      console.log(chalk.green(`  ✓ ${r.package}`))
+      console.log(chalk.gray(`  - ${r.package}`))
     })
   }
 

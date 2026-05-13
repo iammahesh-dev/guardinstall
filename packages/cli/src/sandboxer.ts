@@ -42,21 +42,11 @@ interface SandboxResult {
  */
 function getBinaryName(): string {
   const platform = os.platform();
-  const arch = os.arch();
 
-  // For development, just use 'sandboxer' (built by cargo)
-  // For production/distribution, use platform-specific names
-  if (platform === 'linux') {
-    return arch === 'arm64' ? 'sandboxer-linux-arm64' : 'sandboxer-bin';
-  }
-  if (platform === 'darwin') {
-    return arch === 'arm64' ? 'sandboxer-macos-arm64' : 'sandboxer-macos-x64';
-  }
-  if (platform === 'win32') {
-    return 'sandboxer-windows-x64.exe';
-  }
+  // Use cargo's default binary name for development
+  if (platform === 'win32') return 'sandboxer.exe';
 
-  throw new Error(`Unsupported platform: ${platform} ${arch}`);
+  return 'sandboxer';
 }
 
 /**
